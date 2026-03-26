@@ -1,0 +1,30 @@
+venv/
+.venv/
+.venv
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.log
+.env
+.env.*
+*.swp
+.DS_Store
+.idea/
+.vscode/
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Django
+staticfiles/
+media/
+var/static/
+var/media/
+
+# Go
+backend/go-messaging/bin/
+backend/go-messaging/.air.toml
+
+# OS / misc
+Thumbs.db
