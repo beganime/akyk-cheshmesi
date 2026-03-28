@@ -59,7 +59,7 @@ if env_file.exists():
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="unsafe-dev-key")
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
 
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["127.0.0.1", "localhost"])
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["127.0.0.1", "localhost","akylcheshmesi.ru","www.akylcheshmesi.ru"])
 
 INSTALLED_APPS = [
     "unfold",
@@ -218,12 +218,12 @@ SPECTACULAR_SETTINGS = {
 
 CORS_ALLOWED_ORIGINS = env.list(
     "DJANGO_CORS_ALLOWED_ORIGINS",
-    default=["http://127.0.0.1:3000", "http://localhost:3000"],
+    default=["http://127.0.0.1:3000", "http://localhost:3000","http://localhost:8081"],
 )
 
 CSRF_TRUSTED_ORIGINS = env.list(
     "DJANGO_CSRF_TRUSTED_ORIGINS",
-    default=["http://127.0.0.1:3000", "http://localhost:3000"],
+    default=["http://127.0.0.1:3000", "http://localhost:3000","http://localhost:8081"],
 )
 
 CELERY_BROKER_URL = env("REDIS_BROKER_URL", default="redis://127.0.0.1:6379/1")
