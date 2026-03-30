@@ -1,20 +1,361 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Политика конфиденциальности</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Политика конфиденциальности — Akyl Cheshmesi</title>
+  <link rel="icon" type="image/png" href="/static/logo.png"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
-    body{font-family:Arial,sans-serif;background:#f8fafc;color:#111827;margin:0;padding:40px}
-    .wrap{max-width:860px;margin:0 auto}
-    a{color:#2563eb}
+    :root {
+      --bg:#09090F; --bg-card:rgba(255,255,255,.04); --bg-glass:rgba(255,255,255,.06);
+      --primary:#FD7A22; --primary-g:#FF9A52;
+      --primary-dim:rgba(253,122,34,.15); --primary-border:rgba(253,122,34,.3);
+      --text:#F0F0FF; --text-2:#A0A0C0; --text-3:#58587A;
+      --border:rgba(255,255,255,.08); --border-s:rgba(255,255,255,.13);
+      --ok:#34D97B; --radius:16px; --radius-lg:24px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--text);line-height:1.7;min-height:100vh;overflow-x:hidden}
+    ::selection{background:rgba(253,122,34,.25);color:#fff}
+    ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:var(--border-s);border-radius:3px}
+    ::-webkit-scrollbar-thumb:hover{background:var(--primary-border)}
+
+    /* BG */
+    .bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+    .orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:.55}
+    .orb-1{width:600px;height:600px;background:radial-gradient(circle,rgba(253,122,34,.18) 0%,transparent 70%);top:-200px;right:-150px;animation:drift 18s ease-in-out infinite alternate}
+    .orb-2{width:500px;height:500px;background:radial-gradient(circle,rgba(91,156,246,.1) 0%,transparent 70%);bottom:100px;left:-150px;animation:drift 22s ease-in-out infinite alternate-reverse}
+    .orb-3{width:300px;height:300px;background:radial-gradient(circle,rgba(253,122,34,.08) 0%,transparent 70%);top:50%;right:10%;animation:drift 15s ease-in-out infinite alternate}
+    @keyframes drift{from{transform:translate(0,0)}to{transform:translate(30px,40px)}}
+
+    .wrap{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:0 24px 80px}
+
+    /* Header */
+    header{padding:56px 0 48px;text-align:center;animation:fadeUp .6s ease both}
+    .logo-ring{display:inline-flex;align-items:center;justify-content:center;width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--primary-g),var(--primary));box-shadow:0 0 40px rgba(253,122,34,.45);margin-bottom:24px}
+    .logo-ring svg{width:36px;height:36px}
+    .logo-ring svg path{fill:#fff}
+    h1{font-size:clamp(28px,5vw,40px);font-weight:800;letter-spacing:-.8px;background:linear-gradient(135deg,#fff 0%,var(--primary-g) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:12px}
+    .header-meta{font-size:14px;color:var(--text-3);letter-spacing:.3px}
+    .header-meta strong{color:var(--text-2)}
+
+    /* TOC */
+    .toc{background:var(--bg-card);border:1px solid var(--border-s);border-radius:var(--radius-lg);padding:28px 32px;margin-bottom:40px;animation:fadeUp .6s .1s ease both}
+    .toc-title{font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--primary);margin-bottom:16px}
+    .toc ol{list-style:none;counter-reset:toc;display:grid;grid-template-columns:1fr 1fr;gap:8px 24px}
+    @media(max-width:540px){.toc ol{grid-template-columns:1fr}}
+    .toc li{counter-increment:toc}
+    .toc a{display:flex;align-items:center;gap:10px;color:var(--text-2);text-decoration:none;font-size:14px;font-weight:500;padding:6px 0;transition:color .2s}
+    .toc a::before{content:counter(toc,decimal-leading-zero);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--primary);flex-shrink:0;width:22px}
+    .toc a:hover{color:var(--text)}
+
+    /* Sections */
+    .section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:36px 40px;margin-bottom:20px;opacity:0;transform:translateY(20px);transition:opacity .5s ease,transform .5s ease}
+    .section.visible{opacity:1;transform:translateY(0)}
+    @media(max-width:600px){.section{padding:24px 20px}}
+    .section-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px}
+    .section-num{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;color:var(--primary);background:var(--primary-dim);border:1px solid var(--primary-border);border-radius:6px;padding:3px 8px;flex-shrink:0;margin-top:4px}
+    h2{font-size:20px;font-weight:700;letter-spacing:-.3px;color:var(--text)}
+    p{color:var(--text-2);font-size:15px;margin-bottom:14px}
+    p:last-child{margin-bottom:0}
+
+    /* Lists */
+    .list{list-style:none;display:flex;flex-direction:column;gap:10px;margin:16px 0}
+    .list li{display:flex;align-items:flex-start;gap:12px;font-size:15px;color:var(--text-2)}
+    .list li::before{content:'';display:block;width:6px;height:6px;border-radius:50%;background:var(--primary);flex-shrink:0;margin-top:8px}
+
+    /* Info boxes — SVG icon */
+    .info-box{border-radius:var(--radius);padding:18px 20px;margin:20px 0;display:flex;gap:14px;align-items:flex-start}
+    .info-box.orange{background:rgba(253,122,34,.08);border:1px solid rgba(253,122,34,.2)}
+    .info-box.green{background:rgba(52,217,123,.07);border:1px solid rgba(52,217,123,.2)}
+    .info-box.blue{background:rgba(91,156,246,.07);border:1px solid rgba(91,156,246,.2)}
+    /* icon wrapper */
+    .info-ico{flex-shrink:0;margin-top:1px;width:22px;height:22px}
+    .info-ico svg{width:22px;height:22px;display:block;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .info-box.orange .info-ico svg{stroke:rgba(253,122,34,.9)}
+    .info-box.green  .info-ico svg{stroke:rgba(52,217,123,.9)}
+    .info-box.blue   .info-ico svg{stroke:rgba(91,156,246,.9)}
+    .info-box p{margin:0;font-size:14px;line-height:1.6}
+    .info-box.orange p{color:rgba(255,154,82,.9)}
+    .info-box.green  p{color:rgba(52,217,123,.85)}
+    .info-box.blue   p{color:rgba(91,156,246,.85)}
+
+    /* Permission cards */
+    .perm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin:20px 0}
+    .perm-card{background:var(--bg-glass);border:1px solid var(--border-s);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s,background .2s}
+    .perm-card:hover{border-color:var(--primary-border);background:var(--primary-dim)}
+    .perm-ico{width:40px;height:40px;border-radius:11px;background:var(--primary-dim);border:1px solid var(--primary-border);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .perm-ico svg{width:20px;height:20px;stroke:var(--primary-g);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    .perm-name{font-size:14px;font-weight:700;color:var(--text)}
+    .perm-desc{font-size:13px;color:var(--text-3);line-height:1.5;margin:0}
+
+    /* Table */
+    .data-table{width:100%;border-collapse:collapse;margin:20px 0;font-size:14px}
+    .data-table th{text-align:left;padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--primary);border-bottom:1px solid var(--border-s)}
+    .data-table td{padding:14px 16px;color:var(--text-2);border-bottom:1px solid var(--border);vertical-align:top}
+    .data-table tr:last-child td{border-bottom:none}
+    .data-table tr:hover td{background:rgba(255,255,255,.02)}
+    .tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 8px;border-radius:4px;background:var(--primary-dim);color:var(--primary);border:1px solid var(--primary-border);white-space:nowrap}
+
+    /* Contact */
+    .contact-card{background:linear-gradient(135deg,rgba(253,122,34,.1) 0%,rgba(255,154,82,.05) 100%);border:1px solid var(--primary-border);border-radius:var(--radius-lg);padding:32px 36px;text-align:center;margin-top:40px;animation:fadeUp .6s ease both}
+    .contact-card h3{font-size:20px;font-weight:700;color:var(--text);margin-bottom:10px}
+    .contact-card p{font-size:15px;color:var(--text-2);margin-bottom:20px}
+    .contact-links{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+    .contact-link{display:inline-flex;align-items:center;gap:9px;padding:11px 22px;border-radius:10px;font-size:14px;font-weight:600;text-decoration:none;transition:transform .15s,box-shadow .15s}
+    .contact-link:hover{transform:translateY(-2px)}
+    .contact-link svg{width:16px;height:16px;flex-shrink:0;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .contact-link.primary{background:var(--primary);color:#fff;box-shadow:0 4px 20px rgba(253,122,34,.35)}
+    .contact-link.primary svg{stroke:#fff}
+    .contact-link.primary:hover{box-shadow:0 8px 28px rgba(253,122,34,.5)}
+    .contact-link.secondary{background:var(--bg-glass);color:var(--text-2);border:1px solid var(--border-s)}
+    .contact-link.secondary svg{stroke:var(--text-2)}
+
+    footer{text-align:center;padding:40px 0 20px;font-size:13px;color:var(--text-3);border-top:1px solid var(--border);margin-top:60px}
+    footer strong{color:var(--primary)}
+    .divider{height:1px;background:var(--border);margin:24px 0}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
   </style>
 </head>
 <body>
-  <div class="wrap">
+
+<div class="bg-orbs" aria-hidden="true">
+  <div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+</div>
+
+<div class="wrap">
+
+  <header>
+    <div class="logo-ring" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M21 15C21 15.53 20.79 16.04 20.41 16.41C20.04 16.79 19.53 17 19 17H7L3 21V5C3 4.47 3.21 3.96 3.59 3.59C3.96 3.21 4.47 3 5 3H19C19.53 3 20.04 3.21 20.41 3.59C20.79 3.96 21 4.47 21 5V15Z"/></svg>
+    </div>
     <h1>Политика конфиденциальности</h1>
-    <p>Замени этот файл своим <code>privacy.html</code>.</p>
-    <p><a href="/">На главную</a></p>
-  </div>
+    <p class="header-meta">
+      <strong>Akyl Cheshmesi</strong> &nbsp;·&nbsp; Дата вступления в силу: <strong>1 апреля 2026 г.</strong> &nbsp;·&nbsp; Версия 1.0
+    </p>
+  </header>
+
+  <nav class="toc" aria-label="Содержание">
+    <div class="toc-title">Содержание</div>
+    <ol>
+      <li><a href="#s1">Общие положения</a></li>
+      <li><a href="#s2">Какие данные мы собираем</a></li>
+      <li><a href="#s3">Разрешения приложения</a></li>
+      <li><a href="#s4">Как используются данные</a></li>
+      <li><a href="#s5">Хранение и защита</a></li>
+      <li><a href="#s6">Передача третьим лицам</a></li>
+      <li><a href="#s7">Ваши права</a></li>
+      <li><a href="#s8">Cookies и аналитика</a></li>
+      <li><a href="#s9">Дети и несовершеннолетние</a></li>
+      <li><a href="#s10">Изменения политики</a></li>
+    </ol>
+  </nav>
+
+  <!-- 01 -->
+  <section class="section" id="s1">
+    <div class="section-header"><span class="section-num">01</span><h2>Общие положения</h2></div>
+    <p>Настоящая Политика конфиденциальности описывает, как мессенджер <strong style="color:var(--text)">Akyl Cheshmesi</strong> («мы», «нас», «приложение») собирает, использует и защищает ваши персональные данные при использовании мобильного приложения и связанных сервисов.</p>
+    <p>Используя Akyl Cheshmesi, вы подтверждаете, что ознакомились с данной Политикой и согласны с её условиями. Если вы не согласны — пожалуйста, воздержитесь от использования приложения.</p>
+    <div class="info-box green">
+      <div class="info-ico"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <p>Мы придерживаемся принципа минимизации данных: собираем только то, что необходимо для работы мессенджера, и никогда не продаём ваши данные третьим лицам.</p>
+    </div>
+  </section>
+
+  <!-- 02 -->
+  <section class="section" id="s2">
+    <div class="section-header"><span class="section-num">02</span><h2>Какие данные мы собираем</h2></div>
+    <table class="data-table">
+      <thead><tr><th>Категория данных</th><th>Конкретные данные</th><th>Источник</th></tr></thead>
+      <tbody>
+        <tr><td><strong style="color:var(--text)">Учётная запись</strong></td><td>Имя, фамилия, имя пользователя (@логин), фотография профиля</td><td><span class="tag">Вы вводите</span></td></tr>
+        <tr><td><strong style="color:var(--text)">Аутентификация</strong></td><td>Пароль (хранится в виде хеша bcrypt, не в открытом виде)</td><td><span class="tag">Вы вводите</span></td></tr>
+        <tr><td><strong style="color:var(--text)">Сообщения</strong></td><td>Текст, изображения, видео, файлы, голосовые — всё что вы отправляете</td><td><span class="tag">Чат</span></td></tr>
+        <tr><td><strong style="color:var(--text)">Устройство</strong></td><td>Модель устройства, ОС, FCM-токен для push-уведомлений, IP-адрес</td><td><span class="tag">Авто</span></td></tr>
+        <tr><td><strong style="color:var(--text)">Геолокация</strong></td><td>Только страна/регион (определяется по IP или системной локали) — для привязки сессии</td><td><span class="tag">Авто</span></td></tr>
+        <tr><td><strong style="color:var(--text)">Активность</strong></td><td>Время последнего визита, статус «в сети», история сессий устройств</td><td><span class="tag">Авто</span></td></tr>
+        <tr><td><strong style="color:var(--text)">Медиафайлы</strong></td><td>Фото и видео, которые вы отправляете — хранятся в защищённом S3-хранилище</td><td><span class="tag">Чат</span></td></tr>
+      </tbody>
+    </table>
+    <div class="info-box blue">
+      <div class="info-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></div>
+      <p>Мы <strong>не собираем</strong> данные банковских карт, паспортные данные и биометрию. Пароль никогда не хранится в открытом виде — только в виде необратимого bcrypt-хеша.</p>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section class="section" id="s3">
+    <div class="section-header"><span class="section-num">03</span><h2>Разрешения приложения</h2></div>
+    <p>Для полноценной работы Akyl Cheshmesi запрашивает следующие разрешения на вашем устройстве:</p>
+    <div class="perm-grid">
+      <div class="perm-card">
+        <div class="perm-ico"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+        <div class="perm-name">Камера (CAMERA)</div>
+        <p class="perm-desc">Съёмка фото и видео исключительно для отправки вашим собеседникам в чате. Данные не передаются третьим лицам и используются только в рамках функции обмена сообщениями.</p>      </div>
+      <div class="perm-card">
+        <div class="perm-ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+        <div class="perm-name">Микрофон (RECORD_AUDIO)</div>
+        <p class="perm-desc">Запись аудио используется строго для создания и отправки голосовых сообщений или записи звука при съёмке видео в приложении.</p>      </div>
+      <div class="perm-card">
+        <div class="perm-ico"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+        <div class="perm-name">Push-уведомления</div>
+        <p class="perm-desc">Оповещения о новых сообщениях, когда приложение находится в фоновом режиме (POST_NOTIFICATIONS).</p>      </div>
+      <div class="perm-card">
+        <div class="perm-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+        <div class="perm-name">Интернет</div>
+        <p class="perm-desc">Необходим для отправки и получения сообщений, подключения к серверу в реальном времени.</p>
+      </div>
+      <div class="perm-card">
+        <div class="perm-ico"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
+        <div class="perm-name">Галерея / Хранилище</div>
+        <p class="perm-desc">Выбор существующих медиафайлов для отправки в чат (READ_EXTERNAL_STORAGE) и сохранение полученных файлов на ваше устройство (WRITE_EXTERNAL_STORAGE).</p>      </div>
+      <div class="perm-card">
+        <div class="perm-ico"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <div class="perm-name">Защищённое хранилище</div>
+        <p class="perm-desc">Безопасное хранение токена аутентификации с использованием Secure Store / Keychain.</p>
+      </div>
+    </div>
+    <div class="info-box orange">
+      <div class="info-ico"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+      <p>Все разрешения запрашиваются в момент первого использования функции. Вы можете отозвать любое разрешение в настройках устройства. Отзыв разрешения камеры или галереи не влияет на отправку текстовых сообщений.</p>
+    </div>
+  </section>
+
+  <!-- 04 -->
+  <section class="section" id="s4">
+    <div class="section-header"><span class="section-num">04</span><h2>Как используются ваши данные</h2></div>
+    <p>Ваши данные используются исключительно для обеспечения работы мессенджера:</p>
+    <ul class="list">
+      <li>Идентификация и аутентификация вашей учётной записи при входе</li>
+      <li>Доставка сообщений, фотографий, видео и файлов вашим собеседникам</li>
+      <li>Отображение вашего имени, аватара и статуса «в сети» другим пользователям</li>
+      <li>Отправка push-уведомлений о новых сообщениях через Firebase Cloud Messaging</li>
+      <li>Хранение истории переписки для её отображения при открытии чата</li>
+      <li>Обеспечение безопасности: хранение истории активных сессий и устройств</li>
+      <li>Техническое обслуживание, исправление ошибок и улучшение стабильности</li>
+    </ul>
+    <div class="divider"></div>
+    <p>Мы <strong style="color:var(--text)">не используем</strong> ваши данные для:</p>
+    <ul class="list">
+      <li>Рекламных или маркетинговых целей</li>
+      <li>Обучения алгоритмов искусственного интеллекта</li>
+      <li>Профилирования и таргетирования</li>
+      <li>Передачи или продажи третьим лицам в коммерческих целях</li>
+      <li>Анализа содержания ваших личных сообщений</li>
+    </ul>
+  </section>
+
+  <!-- 05 -->
+  <section class="section" id="s5">
+    <div class="section-header"><span class="section-num">05</span><h2>Хранение и защита данных</h2></div>
+    <p>Мы применяем многоуровневую защиту для обеспечения безопасности ваших данных:</p>
+    <ul class="list">
+      <li><strong style="color:var(--text)">Шифрование при передаче:</strong> все соединения используют HTTPS/TLS 1.3 и WSS (защищённый WebSocket)</li>
+      <li><strong style="color:var(--text)">Хеширование паролей:</strong> bcrypt с индивидуальной солью — пароль невозможно восстановить даже при утечке БД</li>
+      <li><strong style="color:var(--text)">JWT-токены:</strong> ограниченный срок действия, хранятся в Secure Store / Android Keystore</li>
+      <li><strong style="color:var(--text)">Медиафайлы:</strong> хранятся в S3-совместимом облачном хранилище с подписанными временными ссылками</li>
+      <li><strong style="color:var(--text)">База данных:</strong> PostgreSQL с SSL-соединением, регулярные резервные копии</li>
+      <li><strong style="color:var(--text)">Инфраструктура:</strong> серверы расположены в защищённых дата-центрах, доступ ограничен</li>
+      <li><strong style="color:var(--text)">Мониторинг:</strong> автоматическое обнаружение аномальной активности и подозрительных входов</li>
+    </ul>
+    <div class="info-box green">
+      <div class="info-ico"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+      <p>Локальный кэш сообщений на вашем устройстве хранится в SQLite базе данных и защищён стандартными механизмами безопасности операционной системы (Android Keystore / iOS Secure Enclave).</p>
+    </div>
+    <p>Данные хранятся до момента удаления вашей учётной записи. После удаления — все ваши персональные данные, сообщения и медиафайлы удаляются в течение <strong style="color:var(--text)">30 дней</strong>.</p>
+  </section>
+
+  <!-- 06 -->
+  <section class="section" id="s6">
+    <div class="section-header"><span class="section-num">06</span><h2>Передача данных третьим лицам</h2></div>
+    <p>Мы работаем с ограниченным числом доверенных партнёров, которые помогают нам обеспечивать работу сервиса:</p>
+    <table class="data-table">
+      <thead><tr><th>Партнёр</th><th>Цель</th><th>Данные</th></tr></thead>
+      <tbody>
+        <tr><td><strong style="color:var(--text)">Google Firebase</strong></td><td>Push-уведомления (FCM)</td><td>FCM-токен устройства, содержание уведомления</td></tr>
+        <tr><td><strong style="color:var(--text)">S3 / Reg.ru Cloud</strong></td><td>Хранение медиафайлов</td><td>Только загруженные вами файлы</td></tr>
+        <tr><td><strong style="color:var(--text)">RabbitMQ</strong></td><td>Доставка сообщений между серверами</td><td>Зашифрованное содержание сообщений в transit</td></tr>
+      </tbody>
+    </table>
+    <p>Все партнёры связаны соглашениями о конфиденциальности и обрабатывают данные исключительно в указанных целях.</p>
+    <div class="info-box orange">
+      <div class="info-ico"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+      <p>Мы можем раскрыть данные по законному требованию государственных органов в рамках действующего законодательства. В таком случае мы уведомим вас, если это не запрещено законом.</p>
+    </div>
+  </section>
+
+  <!-- 07 -->
+  <section class="section" id="s7">
+    <div class="section-header"><span class="section-num">07</span><h2>Ваши права</h2></div>
+    <p>Вы имеете следующие права в отношении своих персональных данных:</p>
+    <ul class="list">
+      <li><strong style="color:var(--text)">Право на доступ:</strong> получить информацию о том, какие данные мы о вас храним</li>
+      <li><strong style="color:var(--text)">Право на исправление:</strong> обновить имя, фамилию и фотографию профиля в любое время через настройки</li>
+      <li><strong style="color:var(--text)">Право на удаление:</strong> запросить полное удаление аккаунта и всех связанных данных</li>
+      <li><strong style="color:var(--text)">Право на ограничение:</strong> отключить push-уведомления или отозвать разрешения в настройках устройства</li>
+      <li><strong style="color:var(--text)">Право на переносимость:</strong> запросить экспорт истории ваших сообщений</li>
+      <li><strong style="color:var(--text)">Право на возражение:</strong> отказаться от отдельных видов обработки данных</li>
+    </ul>
+    <div class="info-box blue">
+      <div class="info-ico"><svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></div>
+      <p>Для реализации ваших прав обратитесь к нам по электронной почте, указанной в разделе «Контакты». Мы обрабатываем запросы в течение <strong>30 дней</strong>.</p>
+    </div>
+  </section>
+
+  <!-- 08 -->
+  <section class="section" id="s8">
+    <div class="section-header"><span class="section-num">08</span><h2>Cookies и аналитика</h2></div>
+    <p>Мобильное приложение Akyl Cheshmesi <strong style="color:var(--text)">не использует рекламные cookies</strong> и не подключает сторонние трекеры (Google Analytics, Facebook Pixel и подобные).</p>
+    <p>Веб-версия приложения использует только технически необходимые элементы:</p>
+    <ul class="list">
+      <li><strong style="color:var(--text)">localStorage / sessionStorage:</strong> хранение токена сессии и выбранных настроек</li>
+      <li><strong style="color:var(--text)">WebSocket-соединение:</strong> для обмена сообщениями в реальном времени</li>
+    </ul>
+    <p>Никакие данные о вашем поведении не передаются рекламным сетям.</p>
+  </section>
+
+  <!-- 09 -->
+  <section class="section" id="s9">
+    <div class="section-header"><span class="section-num">09</span><h2>Дети и несовершеннолетние</h2></div>
+    <p>Akyl Cheshmesi предназначен для пользователей <strong style="color:var(--text)">в возрасте 13 лет и старше</strong>. Мы намеренно не собираем данные детей младше 13 лет.</p>
+    <p>Если вам стало известно, что ребёнок до 13 лет зарегистрировал аккаунт, пожалуйста, немедленно свяжитесь с нами — мы удалим аккаунт и все связанные данные.</p>
+    <div class="info-box orange">
+      <div class="info-ico"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <p>Пользователям в возрасте 13–18 лет рекомендуется использовать приложение с ведома родителей или законных представителей.</p>
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section class="section" id="s10">
+    <div class="section-header"><span class="section-num">10</span><h2>Изменения политики</h2></div>
+    <p>Мы оставляем за собой право обновлять настоящую Политику конфиденциальности. При существенных изменениях мы уведомим вас одним из следующих способов:</p>
+    <ul class="list">
+      <li>Push-уведомление в приложении</li>
+      <li>Уведомление при следующем входе в систему</li>
+      <li>Обновление даты «Дата вступления в силу» в заголовке документа</li>
+    </ul>
+    <p>Продолжение использования приложения после вступления изменений в силу означает ваше согласие с обновлённой редакцией Политики.</p>
+    <p>Архив предыдущих версий доступен по запросу на электронную почту службы поддержки.</p>
+  </section>
+  <footer>
+    <p>© 2026 <strong>Akyl Cheshmesi</strong>. Все права защищены.</p>
+    <p style="margin-top:6px">Политика конфиденциальности · 2026 г.</p>
+  </footer>
+
+</div>
+
+<script>
+  const io = new IntersectionObserver(
+    es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); io.unobserve(e.target); } }),
+    { threshold: 0.08 }
+  );
+  document.querySelectorAll('.section').forEach(s => io.observe(s));
+</script>
 </body>
 </html>

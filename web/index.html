@@ -1,20 +1,807 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Akyl Cheshmesi</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Akyl Cheshmesi — Безопасный мессенджер | Скачать для Android</title>
+  <meta name="description" content="Akyl Cheshmesi — бесплатный безопасный мессенджер с шифрованием TLS 1.3. Скачать APK для Android."/>
+  <meta name="keywords" content="мессенджер, безопасный чат, akyl cheshmesi, скачать мессенджер, Туркменистан"/>
+  <meta name="robots" content="index, follow"/>
+  <link rel="canonical" href="https://akyl-cheshmesi.online/"/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://akyl-cheshmesi.online/"/>
+  <meta property="og:title" content="Akyl Cheshmesi — Безопасный мессенджер"/>
+  <meta property="og:description" content="Скачать безопасный мессенджер для Android бесплатно."/>
+  <meta property="og:image" content="https://akyl-cheshmesi.online/static/logo.png"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <link rel="icon" type="image/png" href="/static/favicon.png"/>
+  <meta name="google-site-verification" content="A0JvXPYZNNjev37QLvMQ9V80iB6hi0GriQxFJKKkhAg" />
+  <meta name="yandex-verification" content="a667a8ad1dde6cb7" />
+  <link rel="apple-touch-icon" href="/static/logo.png"/>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Akyl Cheshmesi","operatingSystem":"Android","applicationCategory":"CommunicationApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://akyl-cheshmesi.online"}</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
   <style>
-    body{font-family:Arial,sans-serif;background:#0f172a;color:#fff;margin:0;display:grid;place-items:center;min-height:100vh}
-    .card{max-width:760px;padding:40px;border-radius:24px;background:#111827;box-shadow:0 20px 60px rgba(0,0,0,.35)}
-    a{color:#93c5fd}
+  :root {
+    --bg:       #07070D;
+    --glass:    rgba(255,255,255,0.05);
+    --glass-s:  rgba(255,255,255,0.08);
+    --glass-b:  rgba(255,255,255,0.12);
+    --pri:      #FD7A22;
+    --pri-g:    #FF9A52;
+    --pri-dim:  rgba(253,122,34,0.12);
+    --pri-b:    rgba(253,122,34,0.28);
+    --pri-glow: rgba(253,122,34,0.20);
+    --sl-r:     #C0293F;
+    --sl-b:     #1A3A8F;
+    --text:     #F0F0FF;
+    --t2:       #8888AA;
+    --t3:       #44445A;
+    --border:   rgba(255,255,255,0.07);
+    --borders:  rgba(255,255,255,0.12);
+    --ok:       #34D97B;
+    --nav-h:    64px;
+    --r: 14px; --rl: 22px; --rxl: 32px; --r3: 48px;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+  body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;line-height:1.65;-webkit-font-smoothing:antialiased}
+  ::selection{background:rgba(253,122,34,.28)}
+  ::-webkit-scrollbar{width:5px}
+  ::-webkit-scrollbar-thumb{background:var(--glass-b);border-radius:3px}
+  img{display:block;max-width:100%}
+  a{color:inherit;text-decoration:none}
+
+  /* ── BG ── */
+  .bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .orb{position:absolute;border-radius:50%;filter:blur(100px)}
+  .o1{width:min(700px,90vw);height:min(700px,90vw);background:radial-gradient(circle,rgba(253,122,34,.17) 0%,transparent 65%);top:-200px;right:-180px;animation:fl1 22s ease-in-out infinite alternate}
+  .o2{width:min(550px,80vw);height:min(550px,80vw);background:radial-gradient(circle,rgba(91,156,246,.08) 0%,transparent 65%);bottom:-80px;left:-150px;animation:fl2 28s ease-in-out infinite alternate}
+  .o3{width:min(380px,60vw);height:min(380px,60vw);background:radial-gradient(circle,rgba(52,217,123,.05) 0%,transparent 65%);top:55%;left:40%;animation:fl1 19s ease-in-out infinite alternate-reverse}
+  .bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(rgba(255,255,255,.025) 1px,transparent 1px);background-size:36px 36px}
+  @keyframes fl1{to{transform:translate(50px,60px)}}
+  @keyframes fl2{to{transform:translate(-40px,-50px)}}
+
+  /* ══════════════════════════════════════
+     NAV — magnetic / sticky
+  ══════════════════════════════════════ */
+  nav {
+    position: sticky; top: 0; z-index: 300;
+    height: var(--nav-h);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 clamp(16px,4vw,52px);
+    background: rgba(7,7,13,.6);
+    backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);
+    border-bottom: 1px solid var(--border);
+    transition: background .35s, box-shadow .35s;
+  }
+  nav.scrolled {
+    background: rgba(7,7,13,.92);
+    box-shadow: 0 8px 32px rgba(0,0,0,.35);
+  }
+  .nav-brand { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+  .nav-logo { width:34px; height:34px; border-radius:50%; object-fit:cover; box-shadow:0 0 14px var(--pri-glow); }
+  .nav-logo-fb { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,var(--pri-g),var(--pri)); display:none; align-items:center; justify-content:center; box-shadow:0 0 14px var(--pri-glow); flex-shrink:0; }
+  .nav-name { font-size:15px; font-weight:800; letter-spacing:-.3px; color:var(--text); white-space:nowrap; }
+  .nav-right { display:flex; align-items:center; gap:16px; }
+  .nav-privacy { font-size:13px; font-weight:500; color:var(--t2); transition:color .2s; white-space:nowrap; }
+  .nav-privacy:hover { color:var(--text); }
+  /* Pill download button */
+  .nav-dl {
+    display: inline-flex; align-items: center; gap:7px;
+    background: var(--pri); color:#fff;
+    padding: 9px 20px; border-radius: 999px;
+    font-size: 13px; font-weight: 700; white-space: nowrap;
+    box-shadow: 0 4px 18px rgba(253,122,34,.38);
+    transition: box-shadow .2s, transform .15s;
+  }
+  .nav-dl:hover { box-shadow: 0 6px 28px rgba(253,122,34,.62); transform: translateY(-1px); }
+  .nav-dl svg { width:13px; height:13px; }
+  /* Hamburger */
+  .nav-menu-btn { display:none; flex-direction:column; justify-content:center; gap:5px; width:38px; height:38px; background:var(--glass-s); border:1px solid var(--borders); border-radius:10px; cursor:pointer; padding:9px; transition:background .2s; }
+  .nav-menu-btn span { display:block; width:100%; height:2px; background:var(--t2); border-radius:1px; transition:all .28s cubic-bezier(.4,0,.2,1); }
+  .nav-menu-btn.open span:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
+  .nav-menu-btn.open span:nth-child(2){opacity:0;transform:scaleX(0)}
+  .nav-menu-btn.open span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px)}
+  @media(max-width:640px){ .nav-privacy{display:none} .nav-dl{display:none} .nav-menu-btn{display:flex} }
+
+  /* Mobile drawer */
+  .mobile-menu {
+    display: none;
+    position: sticky; top: var(--nav-h); z-index: 290;
+    background: rgba(7,7,13,.97); backdrop-filter: blur(28px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px 20px;
+    flex-direction: column; gap: 2px;
+    transform: translateY(-8px); opacity: 0;
+    transition: transform .25s ease, opacity .25s ease;
+  }
+  .mobile-menu.open { display:flex; transform:translateY(0); opacity:1; }
+  .mob-link {
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 12px; font-size: 15px; font-weight: 600;
+    color: var(--t2); border-radius: var(--r);
+    transition: background .18s, color .18s;
+  }
+  .mob-link:hover { background: var(--glass-s); color: var(--text); }
+  .mob-link svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; opacity:.6; }
+  .mob-sep { height:1px; background:var(--border); margin:6px 12px; }
+  .mob-dl {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--pri); color: #fff;
+    padding: 14px; border-radius: var(--rl); font-weight: 700; font-size: 15px;
+    margin: 10px 12px 0; box-shadow: 0 4px 18px rgba(253,122,34,.38);
+    transition: box-shadow .2s;
+  }
+  .mob-dl:hover { box-shadow: 0 6px 28px rgba(253,122,34,.6); }
+  .mob-dl svg { width:16px; height:16px; }
+
+  /* ══════════════════════════════════════
+     HERO
+  ══════════════════════════════════════ */
+  .hero { position:relative; z-index:1; min-height:100svh; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:clamp(60px,8vw,100px) clamp(16px,5vw,40px) clamp(40px,6vw,80px); }
+  .badge { display:inline-flex; align-items:center; gap:8px; background:var(--pri-dim); border:1px solid var(--pri-b); border-radius:999px; padding:6px 18px; font-size:12px; font-weight:700; color:var(--pri-g); letter-spacing:.5px; text-transform:uppercase; margin-bottom:28px; animation:fu .5s ease both; }
+  .pulse { width:7px; height:7px; border-radius:50%; background:var(--ok); box-shadow:0 0 8px var(--ok); animation:blink 2s ease-in-out infinite; flex-shrink:0; }
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .hero-title { font-size:clamp(40px,8vw,90px); font-weight:900; letter-spacing:clamp(-1.5px,-0.04em,-3px); line-height:1.0; max-width:900px; margin-bottom:24px; animation:fu .5s .1s ease both; }
+  .gr { background:linear-gradient(135deg,#fff 0%,var(--pri-g) 50%,var(--pri) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .hero-sub { font-size:clamp(15px,2.2vw,19px); color:var(--t2); max-width:540px; margin-bottom:44px; line-height:1.75; animation:fu .5s .2s ease both; }
+  .hero-btns { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; animation:fu .5s .3s ease both; }
+  .btn { display:inline-flex; align-items:center; gap:9px; padding:clamp(12px,2vw,15px) clamp(20px,3vw,28px); border-radius:999px; font-size:clamp(14px,1.5vw,15px); font-weight:700; transition:transform .15s,box-shadow .2s; cursor:pointer; border:none; font-family:'Manrope',sans-serif; }
+  .btn svg { width:17px; height:17px; flex-shrink:0; }
+  .btn:hover { transform:translateY(-2px); }
+  .btn-pri { background:linear-gradient(135deg,var(--pri-g),var(--pri)); color:#fff; box-shadow:0 6px 28px rgba(253,122,34,.38); }
+  .btn-pri:hover { box-shadow:0 10px 40px rgba(253,122,34,.62); }
+  .btn-ghost { background:var(--glass-s); border:1px solid var(--borders); color:var(--t2); }
+  .btn-ghost:hover { color:var(--text); border-color:rgba(255,255,255,.22); }
+
+  /* Phone */
+  .hero-visual { position:relative; z-index:1; margin-top:clamp(48px,6vw,80px); animation:fu .65s .4s ease both; }
+  .phone-wrap { position:relative; display:inline-block; }
+  .phone-glow { position:absolute; width:420px; height:420px; border-radius:50%; background:radial-gradient(circle,rgba(253,122,34,.15) 0%,transparent 65%); top:50%; left:50%; transform:translate(-50%,-50%); z-index:-1; pointer-events:none; }
+  .phone { width:clamp(230px,38vw,278px); background:linear-gradient(160deg,rgba(255,255,255,.08) 0%,rgba(255,255,255,.02) 100%); border:1px solid var(--glass-b); border-radius:46px; padding:14px; box-shadow:0 60px 120px rgba(0,0,0,.75),0 0 0 1px rgba(255,255,255,.05),inset 0 1px 0 rgba(255,255,255,.1); }
+  .p-notch { width:78px; height:22px; background:rgba(0,0,0,.9); border-radius:11px; margin:0 auto 12px; display:flex; align-items:center; justify-content:center; gap:7px; }
+  .p-cam { width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.12); }
+  .p-bar { width:18px; height:7px; border-radius:4px; background:rgba(255,255,255,.1); }
+  .p-screen { background:#07070D; border-radius:34px; overflow:hidden; padding:13px; display:flex; flex-direction:column; gap:8px; min-height:420px; }
+  .p-hdr { display:flex; align-items:center; gap:9px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,.05); }
+  .p-av { width:30px; height:30px; border-radius:50%; background:linear-gradient(135deg,var(--pri-g),var(--pri)); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; color:#fff; flex-shrink:0; }
+  .p-nm { font-size:11.5px; font-weight:700; }
+  .p-st { font-size:9.5px; color:var(--ok); }
+  .p-msgs { flex:1; display:flex; flex-direction:column; gap:7px; }
+  .msg { max-width:84%; border-radius:14px; padding:8px 11px; font-size:11px; line-height:1.5; }
+  .msg.o { background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.05); align-self:flex-start; border-bottom-left-radius:3px; }
+  .msg.me { background:var(--pri); color:#fff; align-self:flex-end; border-bottom-right-radius:3px; }
+  .msg-t { font-size:8.5px; opacity:.6; display:block; text-align:right; margin-top:3px; }
+  .p-in { display:flex; align-items:center; gap:7px; background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:20px; padding:7px 12px; margin-top:4px; }
+  .p-ph { flex:1; font-size:10.5px; color:rgba(255,255,255,.28); }
+  .p-snd { width:24px; height:24px; border-radius:50%; background:var(--pri); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+
+  /* Stats */
+  .stats { position:relative; z-index:1; display:flex; justify-content:center; gap:clamp(20px,5vw,56px); flex-wrap:wrap; padding:0 16px 80px; }
+  .stat { text-align:center; }
+  .stat-val { font-size:clamp(20px,3vw,30px); font-weight:900; letter-spacing:-1px; background:linear-gradient(135deg,#fff,var(--pri-g)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .stat-lbl { font-size:11.5px; color:var(--t3); margin-top:4px; }
+
+  /* ══════════════════════════════════════
+     SECTION HELPERS
+  ══════════════════════════════════════ */
+  .section { position:relative; z-index:1; padding:clamp(56px,8vw,96px) clamp(16px,4vw,24px); }
+  .wrap { max-width:1080px; margin:0 auto; }
+  .sec-lbl { text-align:center; font-size:11px; font-weight:700; letter-spacing:1.6px; text-transform:uppercase; color:var(--pri); margin-bottom:12px; }
+  .sec-title { text-align:center; font-size:clamp(24px,4vw,44px); font-weight:800; letter-spacing:-1.2px; margin-bottom:12px; }
+  .sec-sub { text-align:center; font-size:15px; color:var(--t2); max-width:500px; margin:0 auto 48px; line-height:1.75; }
+  .divider { position:relative; z-index:1; height:1px; background:linear-gradient(90deg,transparent,var(--border) 30%,var(--borders) 50%,var(--border) 70%,transparent); }
+
+  /* ══════════════════════════════════════
+     ABOUT
+  ══════════════════════════════════════ */
+  .about-grid { display:grid; grid-template-columns:1fr 1fr; gap:clamp(24px,4vw,56px); align-items:start; }
+  @media(max-width:720px){ .about-grid{grid-template-columns:1fr} }
+  .about-text .sec-lbl,.about-text .sec-title,.about-text .sec-sub { text-align:left; margin-left:0; margin-right:0; }
+  .about-desc { font-size:15px; color:var(--t2); line-height:1.8; margin-bottom:16px; }
+  /* Team leadership */
+  .leadership { display:flex; flex-direction:column; gap:14px; margin-top:16px; }
+  .leader-card {
+    display:flex; align-items:center; gap:14px;
+    background:var(--glass); border:1px solid var(--borders);
+    border-radius:var(--rl); padding:16px 18px;
+    backdrop-filter:blur(12px); transition:border-color .2s, transform .2s;
+  }
+  .leader-card:hover { border-color:var(--pri-b); transform:translateY(-2px); }
+  .leader-av {
+    width:52px; height:52px; border-radius:50%; flex-shrink:0;
+    object-fit:cover; border:2px solid var(--pri-b);
+    box-shadow:0 0 16px var(--pri-glow);
+  }
+  .leader-av-fb {
+    width:52px; height:52px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(135deg,var(--pri-g),var(--pri));
+    display:flex; align-items:center; justify-content:center;
+    font-size:17px; font-weight:900; color:#fff;
+    box-shadow:0 0 16px var(--pri-glow); border:2px solid var(--pri-b);
+  }
+  .leader-info { flex:1; min-width:0; }
+  .leader-name { font-size:14px; font-weight:700; margin-bottom:3px; }
+  .leader-role { font-size:12px; color:var(--t2); line-height:1.4; }
+  /* About cards */
+  .about-cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .acard { background:var(--glass); border:1px solid var(--border); border-radius:var(--rl); padding:20px; backdrop-filter:blur(12px); transition:border-color .25s,transform .2s; }
+  .acard:hover { border-color:var(--pri-b); transform:translateY(-3px); }
+  .acard-ico { width:38px; height:38px; border-radius:10px; background:var(--pri-dim); border:1px solid var(--pri-b); display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
+  .acard-ico svg { width:18px; height:18px; stroke:var(--pri-g); fill:none; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+  .acard-title { font-size:13px; font-weight:700; margin-bottom:5px; }
+  .acard-desc { font-size:12px; color:var(--t2); line-height:1.6; }
+  @media(max-width:480px){ .about-cards{grid-template-columns:1fr} }
+
+  /* ══════════════════════════════════════
+     FEATURES
+  ══════════════════════════════════════ */
+  .feat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(clamp(220px,30vw,300px),1fr)); gap:14px; }
+  .feat-card { background:var(--glass); border:1px solid var(--border); border-radius:var(--rl); padding:26px; backdrop-filter:blur(12px); transition:border-color .25s,transform .2s,box-shadow .25s; }
+  .feat-card:hover { border-color:var(--pri-b); transform:translateY(-4px); box-shadow:0 16px 40px rgba(0,0,0,.3); }
+  .feat-ico { width:44px; height:44px; border-radius:12px; background:var(--pri-dim); border:1px solid var(--pri-b); display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
+  .feat-ico svg { width:21px; height:21px; stroke:var(--pri-g); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .feat-title { font-size:15px; font-weight:700; margin-bottom:8px; }
+  .feat-desc { font-size:13.5px; color:var(--t2); line-height:1.65; }
+
+  /* ══════════════════════════════════════
+     DOWNLOAD
+  ══════════════════════════════════════ */
+  .dl-section { position:relative; z-index:1; padding:clamp(56px,8vw,96px) clamp(16px,4vw,24px); }
+  .dl-card { background:linear-gradient(135deg,rgba(253,122,34,.13) 0%,rgba(255,154,82,.04) 100%); border:1px solid var(--pri-b); border-radius:var(--r3); padding:clamp(40px,6vw,68px) clamp(24px,5vw,48px); max-width:760px; margin:0 auto; position:relative; overflow:hidden; text-align:center; backdrop-filter:blur(16px); }
+  .dl-card::before { content:''; position:absolute; top:-40%; right:-10%; width:500px; height:500px; border-radius:50%; background:radial-gradient(circle,rgba(253,122,34,.12) 0%,transparent 65%); pointer-events:none; }
+  .dl-app-ico { width:88px; height:88px; border-radius:50%; margin:0 auto 22px; object-fit:cover; border:3px solid rgba(255,255,255,.14); box-shadow:0 0 36px var(--pri-glow); position:relative; z-index:1; }
+  .dl-title { font-size:clamp(22px,4vw,40px); font-weight:900; letter-spacing:-1.2px; margin-bottom:10px; position:relative; z-index:1; }
+  .dl-sub { font-size:15px; color:var(--t2); max-width:420px; margin:0 auto 32px; line-height:1.75; position:relative; z-index:1; }
+  .dl-btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; position:relative; z-index:1; }
+  .dl-btn { display:inline-flex; align-items:center; gap:12px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); border-radius:var(--rl); padding:clamp(12px,2vw,15px) clamp(18px,3vw,26px); color:var(--text); transition:background .2s,transform .15s; min-width:170px; backdrop-filter:blur(8px); }
+  .dl-btn:hover { background:rgba(255,255,255,.13); transform:translateY(-2px); }
+  .dl-btn.main { background:linear-gradient(135deg,var(--pri-g),var(--pri)); border-color:transparent; box-shadow:0 8px 30px rgba(253,122,34,.44); }
+  .dl-btn.main:hover { box-shadow:0 12px 44px rgba(253,122,34,.65); }
+  .dl-btn.soon { opacity:.4; cursor:not-allowed; }
+  .dl-btn.soon:hover { transform:none; background:rgba(255,255,255,.08); }
+  .dl-ico svg { width:26px; height:26px; flex-shrink:0; }
+  .dl-txt { text-align:left; }
+  .dl-txt-sub { font-size:10.5px; color:rgba(255,255,255,.55); display:block; }
+  .dl-btn.main .dl-txt-sub { color:rgba(255,255,255,.8); }
+  .dl-btn.soon .dl-txt-sub,.dl-btn.soon .dl-txt-name { color:rgba(255,255,255,.35); }
+  .dl-txt-name { font-size:15px; font-weight:700; display:block; }
+  .dl-ver { font-size:11.5px; color:var(--t3); margin-top:16px; position:relative; z-index:1; }
+  @media(max-width:440px){ .dl-btns{flex-direction:column;align-items:center} .dl-btn{width:100%;max-width:260px;justify-content:center} }
+
+  /* ══════════════════════════════════════
+     SECURITY
+  ══════════════════════════════════════ */
+  .sec-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:13px; }
+  .si { display:flex; align-items:flex-start; gap:13px; background:var(--glass); border:1px solid var(--border); border-radius:var(--r); padding:19px; backdrop-filter:blur(10px); transition:border-color .2s,transform .2s; }
+  .si:hover { border-color:var(--pri-b); transform:translateY(-2px); }
+  .si-ico { width:40px; height:40px; border-radius:11px; background:var(--pri-dim); border:1px solid var(--pri-b); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .si-ico svg { width:19px; height:19px; stroke:var(--pri-g); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .si-name { font-size:13.5px; font-weight:700; margin-bottom:3px; }
+  .si-desc { font-size:12.5px; color:var(--t2); line-height:1.55; }
+
+  /* ══════════════════════════════════════
+     PARTNER — Students Life
+  ══════════════════════════════════════ */
+  .partner-section { position:relative; z-index:1; padding:clamp(56px,8vw,96px) clamp(16px,4vw,24px); }
+  .partner-inner { max-width:1080px; margin:0 auto; }
+
+  /* 4:3 hero image */
+  .partner-hero { position:relative; border-radius:var(--r3); overflow:hidden; margin-bottom:clamp(32px,5vw,56px); aspect-ratio:4/3; max-height:480px; border:1px solid var(--borders); box-shadow:0 40px 80px rgba(0,0,0,.5); }
+  .partner-hero-img { width:100%; height:100%; object-fit:cover; filter:brightness(.68) saturate(1.1); transition:filter .45s; }
+  .partner-hero:hover .partner-hero-img { filter:brightness(.82) saturate(1.1); }
+  .partner-hero-overlay { position:absolute; inset:0; background:linear-gradient(180deg,transparent 20%,rgba(7,7,13,.88) 100%); }
+  .partner-hero-tag { position:absolute; top:18px; left:18px; display:inline-flex; align-items:center; gap:7px; background:rgba(7,7,13,.7); backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,.14); border-radius:999px; padding:6px 15px; font-size:11.5px; font-weight:700; color:#fff; }
+  .partner-hero-tag svg { width:12px; height:12px; stroke:white; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .partner-hero-fb { width:100%; height:100%; background:linear-gradient(135deg,#0D1B4B 0%,#1a2d6e 50%,#8B1A2B 100%); display:flex; align-items:center; justify-content:center; }
+  .partner-hero-fb svg { width:100px; height:100px; stroke:rgba(255,255,255,.15); fill:none; stroke-width:1.2; stroke-linecap:round; stroke-linejoin:round; }
+
+  /* Hero text overlay */
+  .partner-hero-txt { position:absolute; bottom:0; left:0; right:0; padding:clamp(20px,3vw,36px); }
+  .partner-tagline-big { font-size:clamp(18px,3vw,32px); font-weight:900; letter-spacing:-.5px; line-height:1.1; margin-bottom:8px; }
+  .sl-r { color:var(--sl-r); }
+  .sl-b { color:#4A7BFF; }
+  .partner-hero-sub { font-size:clamp(12px,1.5vw,15px); color:rgba(255,255,255,.7); max-width:580px; line-height:1.6; }
+
+  /* Two columns */
+  .partner-body { display:grid; grid-template-columns:1fr 1fr; gap:clamp(24px,4vw,56px); align-items:start; }
+  @media(max-width:740px){ .partner-body{grid-template-columns:1fr;gap:32px} }
+  .partner-left {}
+  .p-badge { display:inline-flex; align-items:center; gap:7px; border-radius:999px; padding:5px 14px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; margin-bottom:16px; background:rgba(26,58,143,.2); border:1px solid rgba(74,123,255,.25); color:#7A9FFF; backdrop-filter:blur(8px); }
+  .p-badge svg { width:11px; height:11px; stroke:#7A9FFF; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .partner-title { font-size:clamp(28px,4vw,50px); font-weight:900; letter-spacing:-1.5px; line-height:1.05; margin-bottom:16px; }
+  .partner-desc { font-size:14.5px; color:var(--t2); line-height:1.8; margin-bottom:24px; }
+  /* SL link buttons — redesigned */
+  .sl-links { display:flex; gap:10px; flex-wrap:wrap; }
+  .sl-link {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:11px 20px; border-radius:999px;
+    font-size:13.5px; font-weight:700;
+    transition:transform .15s, box-shadow .2s, opacity .2s;
+  }
+  .sl-link:hover { transform:translateY(-2px); opacity:.9; }
+  .sl-link svg { width:14px; height:14px; flex-shrink:0; }
+  .sl-link-ru {
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.14);
+    color:var(--t2);
+    backdrop-filter:blur(8px);
+  }
+  .sl-link-ru:hover { background:rgba(255,255,255,.1); color:var(--text); border-color:rgba(255,255,255,.22); }
+  .sl-link-tm {
+    background:rgba(26,58,143,.25);
+    border:1px solid rgba(74,123,255,.3);
+    color:#7A9FFF;
+    backdrop-filter:blur(8px);
+  }
+  .sl-link-tm:hover { background:rgba(26,58,143,.4); box-shadow:0 4px 16px rgba(26,58,143,.3); }
+
+  /* Right: stats + points */
+  .partner-right {}
+  .pstats { display:grid; grid-template-columns:1fr 1fr; gap:11px; margin-bottom:16px; }
+  @media(max-width:440px){ .pstats{grid-template-columns:1fr} }
+  .pst { background:var(--glass); border:1px solid var(--border); border-radius:var(--rl); padding:18px; backdrop-filter:blur(10px); transition:border-color .2s,transform .18s; }
+  .pst:hover { border-color:rgba(74,123,255,.3); transform:translateY(-2px); }
+  .pst-val { font-size:24px; font-weight:900; letter-spacing:-.8px; background:linear-gradient(135deg,#7A9FFF,#C95470); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:4px; }
+  .pst-lbl { font-size:11px; color:var(--t3); line-height:1.4; }
+  .ppoints { display:flex; flex-direction:column; gap:11px; }
+  .pp { display:flex; align-items:flex-start; gap:11px; }
+  .pp-ico { width:32px; height:32px; border-radius:9px; background:rgba(26,58,143,.2); border:1px solid rgba(74,123,255,.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+  .pp-ico svg { width:14px; height:14px; stroke:#7A9FFF; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .pp-txt { font-size:13.5px; color:var(--t2); line-height:1.6; }
+  .pp-txt strong { color:var(--text); font-weight:600; }
+
+  /* ══════════════════════════════════════
+     TEAM
+  ══════════════════════════════════════ */
+  .team-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
+  .team-card { background:var(--glass); border:1px solid var(--border); border-radius:var(--rl); padding:24px; backdrop-filter:blur(10px); transition:border-color .2s,transform .2s; }
+  .team-card:hover { border-color:var(--pri-b); transform:translateY(-3px); }
+  .team-av { width:46px; height:46px; border-radius:50%; background:linear-gradient(135deg,var(--pri-g),var(--pri)); display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:900; color:#fff; margin-bottom:14px; box-shadow:0 0 12px var(--pri-glow); }
+  .team-name { font-size:14px; font-weight:700; margin-bottom:5px; }
+  .team-role { font-size:12px; color:var(--t2); line-height:1.55; }
+
+  /* ══════════════════════════════════════
+     SOCIALS / CONTACT
+  ══════════════════════════════════════ */
+  .contact-section { position:relative; z-index:1; padding:clamp(56px,8vw,96px) clamp(16px,4vw,24px); }
+  .contact-card { max-width:640px; margin:0 auto; background:var(--glass); border:1px solid var(--borders); border-radius:var(--r3); padding:clamp(36px,5vw,52px) clamp(24px,5vw,44px); text-align:center; backdrop-filter:blur(20px); }
+  .contact-card h2 { font-size:clamp(22px,3.5vw,34px); font-weight:800; letter-spacing:-1px; margin-bottom:12px; }
+  .contact-card p { font-size:15px; color:var(--t2); margin-bottom:28px; line-height:1.75; max-width:420px; margin-left:auto; margin-right:auto; }
+  .contact-btns { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:20px; }
+  .contact-btn { display:inline-flex; align-items:center; gap:9px; padding:13px 26px; border-radius:999px; font-size:14px; font-weight:700; transition:box-shadow .2s,transform .15s; }
+  .contact-btn:hover { transform:translateY(-2px); }
+  .contact-btn.mail { background:linear-gradient(135deg,var(--pri-g),var(--pri)); color:#fff; box-shadow:0 6px 22px rgba(253,122,34,.38); }
+  .contact-btn.mail:hover { box-shadow:0 10px 36px rgba(253,122,34,.62); }
+  .contact-btn.mail svg,.contact-btn.soc svg { width:17px; height:17px; flex-shrink:0; }
+  .contact-btn.soc { background:var(--glass-s); border:1px solid var(--borders); color:var(--t2); }
+  .contact-btn.soc:hover { color:var(--text); border-color:rgba(255,255,255,.22); }
+  .contact-note { font-size:12px; color:var(--t3); }
+
+  /* ══════════════════════════════════════
+     FLOATING DOWNLOAD CTA
+  ══════════════════════════════════════ */
+  .float-dl {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    z-index: 400; display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg,var(--pri-g),var(--pri));
+    color: #fff; padding: 12px 24px; border-radius: 999px;
+    font-size: 14px; font-weight: 700; white-space: nowrap;
+    box-shadow: 0 8px 32px rgba(253,122,34,.5);
+    transition: transform .4s cubic-bezier(.34,1.56,.64,1), opacity .4s, box-shadow .2s;
+    opacity: 0; pointer-events: none;
+  }
+  .float-dl.show { opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
+  .float-dl:hover { box-shadow:0 12px 44px rgba(253,122,34,.7); }
+  .float-dl svg { width:16px; height:16px; flex-shrink:0; }
+  .float-dl-q { font-size:11px; font-weight:500; opacity:.85; margin-right:2px; }
+  @media(max-width:480px){ .float-dl{font-size:12px;padding:10px 18px} }
+
+  /* ══════════════════════════════════════
+     BACK TO TOP
+  ══════════════════════════════════════ */
+  .back-top { position:fixed; bottom:28px; right:clamp(16px,3vw,28px); z-index:400; width:42px; height:42px; border-radius:50%; background:var(--glass-s); border:1px solid var(--borders); backdrop-filter:blur(14px); display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; pointer-events:none; transform:translateY(10px); transition:opacity .3s,transform .3s,background .2s; }
+  .back-top.show { opacity:1; pointer-events:auto; transform:translateY(0); }
+  .back-top:hover { background:var(--pri); border-color:var(--pri); }
+  .back-top svg { width:17px; height:17px; stroke:var(--t2); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; transition:stroke .2s; }
+  .back-top:hover svg { stroke:#fff; }
+
+  /* ══════════════════════════════════════
+     FOOTER
+  ══════════════════════════════════════ */
+  footer { position:relative; z-index:1; border-top:1px solid var(--border); padding:clamp(24px,4vw,40px) clamp(16px,4vw,24px); }
+  .foot-inner { max-width:1080px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  @media(max-width:560px){ .foot-inner{flex-direction:column;align-items:center;text-align:center;gap:10px} }
+  .foot-brand { display:flex; align-items:center; gap:9px; }
+  .foot-logo { width:28px; height:28px; border-radius:50%; object-fit:cover; }
+  .foot-name { font-size:14px; font-weight:800; color:var(--text); }
+  .foot-privacy { font-size:13px; color:var(--t3); transition:color .2s; }
+  .foot-privacy:hover { color:var(--t2); }
+  .foot-copy { font-size:12px; color:var(--t3); }
+
+  /* ══════════════════════════════════════
+     ANIMATIONS
+  ══════════════════════════════════════ */
+  @keyframes fu { from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:translateY(0)} }
+  .rev { opacity:0; transform:translateY(22px); transition:opacity .6s ease,transform .6s ease; }
+  .rev.in { opacity:1; transform:translateY(0); }
+  .rev2 { opacity:0; transform:translateY(22px); transition:opacity .6s .12s ease,transform .6s .12s ease; }
+  .rev2.in { opacity:1; transform:translateY(0); }
+  .rev3 { opacity:0; transform:translateY(22px); transition:opacity .6s .22s ease,transform .6s .22s ease; }
+  .rev3.in { opacity:1; transform:translateY(0); }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Akyl Cheshmesi</h1>
-    <p>Здесь будет твоя готовая главная страница. Замени этот файл своим <code>index.html</code>.</p>
-    <p><a href="/privacy">Политика конфиденциальности</a></p>
+
+<div class="bg-canvas" aria-hidden="true"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+<div class="bg-grid" aria-hidden="true"></div>
+
+<!-- ════════════════════ NAV ════════════════════ -->
+<nav id="nav">
+  <a href="/" class="nav-brand">
+    <img src="/static/logo.png" alt="Akyl Cheshmesi" class="nav-logo" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+    <div class="nav-logo-fb" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M21 15C21 15.53 20.79 16 20.41 16.41C20.04 16.79 19.53 17 19 17H7L3 21V5C3 4.47 3.21 3.96 3.59 3.59C3.96 3.21 4.47 3 5 3H19C19.53 3 20.04 3.21 20.41 3.59C20.79 3.96 21 4.47 21 5V15Z" fill="white"/></svg></div>
+    <span class="nav-name">Akyl Cheshmesi</span>
+  </a>
+  <div class="nav-right">
+    <a href="/privacy" class="nav-privacy" target="_blank" rel="noopener">Конфиденциальность</a>
+    <a href="#download" class="nav-dl">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 16L7 11H10V4H14V11H17L12 16Z" fill="white"/><path d="M5 20H19V18H5V20Z" fill="white"/></svg>
+      Скачать
+    </a>
+    <button class="nav-menu-btn" id="menuBtn" aria-label="Меню" aria-expanded="false"><span></span><span></span><span></span></button>
   </div>
+</nav>
+
+<!-- Mobile drawer -->
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#features" class="mob-link"><svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Возможности</a>
+  <a href="#about" class="mob-link"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>О компании</a>
+  <a href="#security" class="mob-link"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Безопасность</a>
+  <a href="#partner" class="mob-link"><svg viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>Students Life</a>
+  <a href="#team" class="mob-link"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Команда</a>
+  <a href="#contact" class="mob-link"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Контакт</a>
+  <div class="mob-sep"></div>
+  <a href="/privacy" class="mob-link" target="_blank"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Конфиденциальность</a>
+  <a href="https://students-life.ru" class="mob-link" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/></svg>SL Россия</a>
+  <a href="https://sl.com.tm" class="mob-link" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/></svg>SL Туркменистан</a>
+  <a href="#download" class="mob-dl">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 16L7 11H10V4H14V11H17L12 16Z" fill="white"/><path d="M5 20H19V18H5V20Z" fill="white"/></svg>
+    Скачать для Android
+  </a>
+</div>
+
+<!-- ════════════════════ HERO ════════════════════ -->
+<main>
+<section class="hero">
+  <div class="badge"><span class="pulse"></span> Android · Бесплатно</div>
+  <h1 class="hero-title">Общайтесь<br/><span class="gr">безопасно.</span></h1>
+  <p class="hero-sub">Akyl Cheshmesi — мессенджер с акцентом на приватность. Мгновенные сообщения, фото и видео. Ваши данные под надёжной защитой.</p>
+  <div class="hero-btns">
+    <a href="#download" class="btn btn-pri"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16L7 11H10V4H14V11H17L12 16Z" fill="white"/><path d="M5 20H19V18H5V20Z" fill="white"/></svg>Скачать для Android</a>
+    <a href="#features" class="btn btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>Узнать больше</a>
+  </div>
+  <div class="hero-visual" aria-hidden="true">
+    <div class="phone-wrap">
+      <div class="phone-glow"></div>
+      <div class="phone">
+        <div class="p-notch"><div class="p-cam"></div><div class="p-bar"></div></div>
+        <div class="p-screen">
+          <div class="p-hdr"><div class="p-av">А</div><div><div class="p-nm">Акыл Чешмеси</div><div class="p-st">● в сети</div></div></div>
+          <div class="p-msgs">
+            <div class="msg o">Привет! Как дела?<span class="msg-t">10:24</span></div>
+            <div class="msg me">Отлично! Новый мессенджер<span class="msg-t">10:25 ✓✓</span></div>
+            <div class="msg o">Быстро и удобно!</div>
+            <div class="msg me">И безопасно — TLS 1.3<span class="msg-t">10:26 ✓✓</span></div>
+            <div class="msg o">Где скачать?<span class="msg-t">10:27</span></div>
+            <div class="msg me">akyl-cheshmesi.online<span class="msg-t">10:27 ✓✓</span></div>
+          </div>
+          <div class="p-in"><span class="p-ph">Сообщение...</span><div class="p-snd"><svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="white" stroke-width="2.5" stroke-linecap="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="stats rev">
+  <div class="stat"><div class="stat-val">TLS&nbsp;1.3</div><div class="stat-lbl">Шифрование</div></div>
+  <div class="stat"><div class="stat-val">bcrypt</div><div class="stat-lbl">Защита паролей</div></div>
+  <div class="stat"><div class="stat-val">0</div><div class="stat-lbl">Рекламных трекеров</div></div>
+  <div class="stat"><div class="stat-val">JWT</div><div class="stat-lbl">Secure Store</div></div>
+</div>
+<div class="divider"></div>
+
+<!-- ════════════════════ ABOUT ════════════════════ -->
+<section class="section" id="about">
+  <div class="wrap">
+    <div class="about-grid">
+      <div class="about-text rev">
+        <div class="sec-lbl">О компании</div>
+        <h2 class="sec-title">Akyl Cheshmesi</h2>
+        <p class="about-desc">Мы создаём технологии для безопасного и удобного общения. Наш флагманский продукт — мессенджер с шифрованием военного класса, работающий на серверах в Туркменистане и России.</p>
+        <p class="about-desc">Помимо мессенджера, компания специализируется на <strong style="color:var(--text)">переводах документов</strong> — дипломов, договоров, юридических бумаг. Тесно сотрудничаем со Students Life: помогаем студентам подготовить документы для поступления в иностранные вузы.</p>
+        <div class="leadership">
+          <!-- CEO -->
+          <div class="leader-card">
+            <img src="/static/ceo.png" alt="Алишер Худайбердыев" class="leader-av"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+            <div class="leader-av-fb" style="display:none">А</div>
+            <div class="leader-info">
+              <div class="leader-name">Алишер Худайбердыев</div>
+              <div class="leader-role">Генеральный директор · Akyl Cheshmesi<br/>Генеральный директор · Students Life</div>
+            </div>
+          </div>
+          <!-- Deputy -->
+          <div class="leader-card">
+            <div class="leader-av-fb" style="background:linear-gradient(135deg,#5B7EF0,#a0b4ff)">З</div>
+            <div class="leader-info">
+              <div class="leader-name">Зарина Айдогдыева</div>
+              <div class="leader-role">Заместитель генерального директора · Akyl Cheshmesi</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="about-cards rev2">
+        <div class="acard"><div class="acard-ico"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="acard-title">Мессенджер</div><p class="acard-desc">Безопасное общение с шифрованием TLS 1.3 и Secure Store</p></div>
+        <div class="acard"><div class="acard-ico"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="acard-title">Переводы</div><p class="acard-desc">Профессиональные переводы дипломов, договоров, юридических бумаг</p></div>
+        <div class="acard"><div class="acard-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><div class="acard-title">Два сервера</div><p class="acard-desc">Инфраструктура в ТКМ и РФ для минимальной задержки</p></div>
+        <div class="acard"><div class="acard-ico"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="acard-title">Партнёрство</div><p class="acard-desc">Тесное сотрудничество с Students Life по поддержке студентов</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+<div class="divider"></div>
+
+<!-- ════════════════════ FEATURES ════════════════════ -->
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="sec-lbl rev">Возможности</div>
+    <h2 class="sec-title rev">Всё нужное — ничего лишнего</h2>
+    <p class="sec-sub rev">Быстрый, удобный и безопасный мессенджер для ежедневного общения.</p>
+    <div class="feat-grid">
+      <article class="feat-card rev"><div class="feat-ico"><svg viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div><h3 class="feat-title">Мгновенная доставка</h3><p class="feat-desc">WebSocket в реальном времени. Сообщения мгновенно — даже при слабом соединении.</p></article>
+      <article class="feat-card rev"><div class="feat-ico"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><h3 class="feat-title">Фото и видео</h3><p class="feat-desc">Снимайте прямо из приложения или выбирайте из галереи. Файлы любого формата.</p></article>
+      <article class="feat-card rev"><div class="feat-ico"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><h3 class="feat-title">Push-уведомления</h3><p class="feat-desc">Мгновенные уведомления даже когда приложение закрыто.</p></article>
+      <article class="feat-card rev"><div class="feat-ico"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div><h3 class="feat-title">Управление сессиями</h3><p class="feat-desc">Контролируйте активные устройства. Удалённый выход с любого.</p></article>
+      <article class="feat-card rev"><div class="feat-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></div><h3 class="feat-title">Боты и автоматизация</h3><p class="feat-desc">Открытый Bot API. Боты отображаются в поиске как обычные пользователи.</p></article>
+      <article class="feat-card rev"><div class="feat-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div><h3 class="feat-title">Два сервера</h3><p class="feat-desc">ТКМ и Россия. Автоматический выбор ближайшего для минимальной задержки.</p></article>
+    </div>
+  </div>
+</section>
+<div class="divider"></div>
+
+<!-- ════════════════════ DOWNLOAD ════════════════════ -->
+<section class="dl-section" id="download">
+  <div class="wrap">
+    <div class="sec-lbl rev">Загрузка</div>
+    <h2 class="sec-title rev">Скачать приложение</h2>
+    <p class="sec-sub rev">Бесплатно. Регистрация за 30 секунд.</p>
+    <div class="dl-card rev">
+      <img src="/static/logo.png" alt="Akyl Cheshmesi" class="dl-app-ico" onerror="this.style.background='linear-gradient(135deg,#FF9A52,#FD7A22)';this.removeAttribute('src')"/>
+      <div class="dl-title">Akyl <span class="gr">Cheshmesi</span></div>
+      <div class="dl-sub">Установите на своё устройство и начните общаться прямо сейчас.</div>
+      <div class="dl-btns">
+        <a href="/download/android" class="dl-btn main">
+          <div class="dl-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M17.6 9.48l1.84-3.18c.16-.31.04-.69-.26-.85a.637.637 0 0 0-.83.22l-1.88 3.24a11.463 11.463 0 0 0-8.94 0L5.65 5.67a.643.643 0 0 0-.87-.2c-.28.18-.37.54-.22.83L6.4 9.48A10.78 10.78 0 0 0 1 18h22a10.78 10.78 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z" fill="white"/></svg></div>
+          <div class="dl-txt"><span class="dl-txt-sub">Скачать APK</span><span class="dl-txt-name">Android</span></div>
+        </a>
+        <div class="dl-btn soon">
+          <div class="dl-ico"><svg viewBox="0 0 24 24" fill="none" width="26" height="26"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" fill="rgba(255,255,255,0.35)"/></svg></div>
+          <div class="dl-txt"><span class="dl-txt-sub">Скоро</span><span class="dl-txt-name">iOS / iPhone</span></div>
+        </div>
+      </div>
+      <div class="dl-ver">Android 8.0+ &nbsp;·&nbsp; Бесплатно &nbsp;·&nbsp; Без рекламы</div>
+    </div>
+  </div>
+</section>
+<div class="divider"></div>
+
+<!-- ════════════════════ SECURITY ════════════════════ -->
+<section class="section" id="security" style="background:linear-gradient(180deg,transparent,rgba(253,122,34,.024) 50%,transparent)">
+  <div class="wrap">
+    <div class="sec-lbl rev">Безопасность</div>
+    <h2 class="sec-title rev">Ваши данные — ваши</h2>
+    <p class="sec-sub rev">Многоуровневая защита. Мы не продаём ваши данные.</p>
+    <div class="sec-grid">
+      <div class="si rev"><div class="si-ico"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div><div class="si-name">HTTPS / TLS 1.3</div><div class="si-desc">Все соединения зашифрованы. Данные недоступны третьим лицам.</div></div></div>
+      <div class="si rev"><div class="si-ico"><svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></div><div><div class="si-name">bcrypt хеширование</div><div class="si-desc">Пароли только в виде хеша. Даже мы не можем их прочитать.</div></div></div>
+      <div class="si rev"><div class="si-ico"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="si-name">JWT + Secure Store</div><div class="si-desc">Токены в Android Keystore / iOS Keychain. Вне обычной памяти.</div></div></div>
+      <div class="si rev"><div class="si-ico"><svg viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></div><div><div class="si-name">Защищённый S3</div><div class="si-desc">Медиафайлы с временными подписанными ссылками.</div></div></div>
+      <div class="si rev"><div class="si-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div><div><div class="si-name">Нет рекламы и трекеров</div><div class="si-desc">Никаких рекламных сетей. Никакой аналитики. Абсолютный ноль.</div></div></div>
+      <div class="si rev"><div class="si-ico"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></div><div><div class="si-name">Право на удаление</div><div class="si-desc">Удалите аккаунт — все данные исчезнут в течение 30 дней.</div></div></div>
+    </div>
+  </div>
+</section>
+<div class="divider"></div>
+
+<!-- ════════════════════ PARTNER ════════════════════ -->
+<section class="partner-section" id="partner">
+  <div class="partner-inner">
+    <div class="sec-lbl rev" style="text-align:center;margin-bottom:32px">Наш партнёр</div>
+
+    <!-- 4:3 hero -->
+    <div class="partner-hero rev">
+      <img src="/static/sl_logo.png" alt="Students Life" class="partner-hero-img"
+           onerror="this.style.display='none';this.nextElementSibling.style.display='none';this.parentElement.querySelector('.partner-hero-fb').style.display='flex'"/>
+      <div class="partner-hero-overlay"></div>
+      <div class="partner-hero-tag">
+        <svg viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        Students Life
+      </div>
+      <!-- Overlay headline on image -->
+      <div class="partner-hero-txt">
+        <div class="partner-tagline-big">СОЗДАЙ СВОЁ<br/><span class="sl-r">СТУДЕНЧЕСКОЕ</span> <span class="sl-b">БУДУЩЕЕ</span></div>
+        <p class="partner-hero-sub">Открой глобальные карьерные возможности с образованием мирового уровня. Официальный партнёр университетов России, Европы и Азии.</p>
+      </div>
+      <div class="partner-hero-fb" style="display:none">
+        <svg viewBox="0 0 24 24" width="100" height="100"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+      </div>
+    </div>
+
+    <div class="partner-body">
+      <div class="partner-left rev">
+        <div class="p-badge"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Образовательный партнёр</div>
+        <h2 class="partner-title"><span class="sl-r">Students</span><br/><span class="sl-b">Life</span></h2>
+        <p class="partner-desc">Students Life — ведущая образовательная платформа помогающая студентам поступить в лучшие университеты мира. Офисы в 5 велаятах Туркменистана, Ташкенте и Казани. Полное сопровождение: от выбора вуза до получения визы и заселения.</p>
+        <p class="partner-desc">Мы тесно сотрудничаем с Students Life: наши сервисы перевода документов помогают студентам подготовить пакет бумаг для поступления.</p>
+        <div class="sl-links">
+          <a href="https://students-life.ru" target="_blank" rel="noopener" class="sl-link sl-link-ru">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/></svg>
+            students-life.ru
+          </a>
+          <a href="https://sl.com.tm" target="_blank" rel="noopener" class="sl-link sl-link-tm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/></svg>
+            sl.com.tm
+          </a>
+        </div>
+      </div>
+
+      <div class="partner-right rev2">
+        <div class="pstats">
+          <div class="pst"><div class="pst-val">1000+</div><div class="pst-lbl">Студентов поступили в иностранные вузы</div></div>
+          <div class="pst"><div class="pst-val">300+</div><div class="pst-lbl">Партнёрских университетов по всему миру</div></div>
+          <div class="pst"><div class="pst-val">7</div><div class="pst-lbl">Офисов в ТКМ, Ташкенте и Казани</div></div>
+          <div class="pst"><div class="pst-val">100%</div><div class="pst-lbl">Сопровождение от заявки до визы</div></div>
+        </div>
+        <div class="ppoints">
+          <div class="pp"><div class="pp-ico"><svg viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg></div><div class="pp-txt"><strong>Подбор университета</strong> — по специальности, бюджету и стране</div></div>
+          <div class="pp"><div class="pp-ico"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="pp-txt"><strong>Документы и переводы</strong> — SOP, рекомендательные письма, нотариальные переводы</div></div>
+          <div class="pp"><div class="pp-ico"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div><div class="pp-txt"><strong>Виза и переезд</strong> — сопровождение вплоть до заселения</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<div class="divider"></div>
+
+<!-- ════════════════════ TEAM ════════════════════ -->
+<section class="section" id="team">
+  <div class="wrap">
+    <div class="sec-lbl rev">Команда разработки</div>
+    <h2 class="sec-title rev">Люди за приложением</h2>
+    <p class="sec-sub rev">Небольшая команда профессионалов, которая создаёт и развивает Akyl Cheshmesi.</p>
+    <div class="team-grid">
+      <div class="team-card rev">
+        <div class="team-av">Б</div>
+        <div class="team-name">Ягмуров Бегенч</div>
+        <div class="team-role">Ведущий программист · Системный архитектор · Сис. администратор · Backend разработка</div>
+      </div>
+      <div class="team-card rev">
+        <div class="team-av" style="background:linear-gradient(135deg,#a06CF5,#7B4FE0)">А</div>
+        <div class="team-name">Аминат Батырова</div>
+        <div class="team-role">Веб-дизайнер · Frontend разработчик</div>
+      </div>
+      <div class="team-card rev">
+        <div class="team-av" style="background:linear-gradient(135deg,#34B4D9,#1A8FB0)">С</div>
+        <div class="team-name">Джумагельдыев Султан</div>
+        <div class="team-role">Системный инженер · Сетевая логика · Backend разработка</div>
+      </div>
+    </div>
+  </div>
+</section>
+<div class="divider"></div>
+
+<!-- ════════════════════ CONTACT ════════════════════ -->
+<section class="contact-section" id="contact">
+  <div class="contact-card rev">
+    <h2>Написать автору</h2>
+    <p>Есть идея что добавить? Нашли баг? Или просто хотите поздороваться? Пишите — читаю каждое сообщение и отвечаю лично.</p>
+    <div class="contact-btns">
+      <a href="mailto:begenchyagmurow2008@gmail.com" class="contact-btn mail">
+        <svg viewBox="0 0 24 24" stroke="white" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        Написать письмо
+      </a>
+      <a href="https://www.instagram.com/aga_sila" class="contact-btn soc" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+        Instagram
+      </a>
+      <a href="https://www.tiktok.com/@aga_sila" class="contact-btn soc" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"/></svg>
+        TikTok
+      </a>
+    </div>
+    <div class="contact-note">@aga_sila · begenchyagmurow2008@gmail.com · Отвечаю в течение 1–2 дней</div>
+  </div>
+</section>
+</main>
+
+<!-- ════════════════════ FOOTER ════════════════════ -->
+<footer>
+  <div class="foot-inner">
+    <div class="foot-brand">
+      <img src="/static/logo.png" alt="logo" class="foot-logo" onerror="this.style.display='none'"/>
+      <span class="foot-name">Akyl Cheshmesi</span>
+    </div>
+    <a href="/privacy" class="foot-privacy" target="_blank" rel="noopener">Политика конфиденциальности</a>
+    <div class="foot-copy">© 2026 Akyl Cheshmesi</div>
+  </div>
+</footer>
+
+<!-- Floating download CTA -->
+<a href="#download" class="float-dl" id="floatDl">
+  <svg viewBox="0 0 24 24" fill="none"><path d="M12 16L7 11H10V4H14V11H17L12 16Z" fill="white"/><path d="M5 20H19V18H5V20Z" fill="white"/></svg>
+  <span class="float-dl-q">А вы скачали уже?</span>
+  Скачать
+</a>
+
+<!-- Back to top -->
+<button class="back-top" id="backTop" aria-label="Наверх">
+  <svg viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg>
+</button>
+
+<script>
+/* NAV sticky scroll */
+const nav = document.getElementById('nav');
+const floatDl = document.getElementById('floatDl');
+const backTop = document.getElementById('backTop');
+let dlSection = document.getElementById('download');
+
+window.addEventListener('scroll', () => {
+  const sy = window.scrollY;
+  nav.classList.toggle('scrolled', sy > 60);
+  backTop.classList.toggle('show', sy > 400);
+  // Show float CTA only after hero, hide near download section
+  const dlTop = dlSection ? dlSection.getBoundingClientRect().top + sy : 9999;
+  const dlBot = dlSection ? dlSection.getBoundingClientRect().bottom + sy : 9999;
+  const inDlZone = (sy + window.innerHeight * .5) >= dlTop && (sy + 200) <= dlBot;
+  floatDl.classList.toggle('show', sy > window.innerHeight * .8 && !inDlZone);
+}, { passive: true });
+
+/* Back to top */
+backTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+/* Hamburger */
+const menuBtn = document.getElementById('menuBtn');
+const mobileMenu = document.getElementById('mobileMenu');
+menuBtn.addEventListener('click', () => {
+  const open = mobileMenu.classList.toggle('open');
+  menuBtn.classList.toggle('open', open);
+  menuBtn.setAttribute('aria-expanded', open);
+});
+document.querySelectorAll('.mobile-menu a').forEach(a => {
+  a.addEventListener('click', () => {
+    mobileMenu.classList.remove('open');
+    menuBtn.classList.remove('open');
+    menuBtn.setAttribute('aria-expanded', false);
+  });
+});
+document.addEventListener('click', e => {
+  if (!nav.contains(e.target) && !mobileMenu.contains(e.target)) {
+    mobileMenu.classList.remove('open');
+    menuBtn.classList.remove('open');
+    menuBtn.setAttribute('aria-expanded', false);
+  }
+});
+
+/* Scroll reveal */
+const io = new IntersectionObserver(
+  es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }),
+  { threshold: 0.07, rootMargin: '0px 0px -36px 0px' }
+);
+document.querySelectorAll('.rev,.rev2,.rev3').forEach(el => io.observe(el));
+</script>
 </body>
 </html>
