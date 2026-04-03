@@ -137,8 +137,7 @@ services:
       - static_data:/var/www/static:ro
       - media_data:/var/www/media:ro
       - ./deploy/nginx/certbot:/var/www/certbot
-      - ./deploy/nginx/ssl:/etc/letsencrypt
-
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 volumes:
   postgres_data:
   redis_data:
