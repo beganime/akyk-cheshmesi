@@ -47,13 +47,10 @@ class Message(UUIDTimeStampedModel):
         blank=True,
         related_name="replies",
     )
-
     is_edited = models.BooleanField(default=False, db_index=True)
     edited_at = models.DateTimeField(null=True, blank=True)
-
     is_deleted = models.BooleanField(default=False, db_index=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
-
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -101,3 +98,33 @@ class MessageReceipt(UUIDTimeStampedModel):
 
     def __str__(self) -> str:
         return f"Receipt for {self.message_id} -> {self.user_id}"
+
+
+class MessageUserState(UUIDTimeStampedModel):
+    message = models.ForeignKey(
+        "messaging.Message",
+        on_delete=models.CASCADE,
+        related_name="user_states",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="message_states",
+    )
+    is_hidden = models.BooleanField(default=False, db_index=True)
+    hidden_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    class Meta:
+        db_table = "message_user_states"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["message", "user"], name="uniq_message_user_state"),
+        ]
+        indexes = [
+            models.Index(fields=["user", "is_hidden"]),
+            models.Index(fields=["message", "user"]),
+            models.Index(fields=["hidden_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"Message state {self.message_id} -> {self.user_id}"

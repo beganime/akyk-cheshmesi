@@ -7,7 +7,12 @@ from rest_framework.response import Response
 from apps.chats.models import Chat, ChatMember
 from apps.common.pagination import ChatListPagination, MessageCursorPagination
 from apps.messaging.models import Message, MessageReceipt
-from apps.messaging.serializers import MessageCreateSerializer, MessageListSerializer
+from apps.messaging.serializers import (
+    MessageCreateSerializer,
+    MessageDeleteSerializer,
+    MessageListSerializer,
+    MessageUpdateSerializer,
+)
 
 from .serializers import (
     ChatArchiveSerializer,
@@ -40,6 +45,21 @@ def get_user_membership_or_404(user, chat_uuid):
             user=user,
             is_active=True,
         )
+    )
+
+
+def get_user_message_or_404(user, chat_uuid, message_uuid):
+    return get_object_or_404(
+        Message.objects.select_related("sender", "reply_to", "reply_to__sender")
+        .prefetch_related("receipts", "attachments__media")
+        .filter(
+            uuid=message_uuid,
+            chat__uuid=chat_uuid,
+            chat__is_active=True,
+            chat__members__user=user,
+            chat__members__is_active=True,
+        )
+        .distinct()
     )
 
 
@@ -87,7 +107,10 @@ class ChatListAPIView(generics.ListAPIView):
                 unread_count_value=Count(
                     "messages",
                     filter=(
-                        (Q(messages__created_at__gt=F("current_member_last_read_at")) | Q(current_member_last_read_at__isnull=True))
+                        (
+                            Q(messages__created_at__gt=F("current_member_last_read_at"))
+                            | Q(current_member_last_read_at__isnull=True)
+                        )
                         & ~Q(messages__sender=request_user)
                         & Q(messages__is_deleted=False)
                     ),
@@ -100,7 +123,9 @@ class ChatListAPIView(generics.ListAPIView):
         if archived in {"1", "true", "yes"}:
             queryset = queryset.filter(current_member_is_archived=True)
         else:
-            queryset = queryset.filter(Q(current_member_is_archived=False) | Q(current_member_is_archived__isnull=True))
+            queryset = queryset.filter(
+                Q(current_member_is_archived=False) | Q(current_member_is_archived__isnull=True)
+            )
 
         pinned = (self.request.query_params.get("pinned") or "").strip().lower()
         if pinned in {"1", "true", "yes"}:
@@ -191,6 +216,7 @@ class ChatMessagesAPIView(generics.GenericAPIView):
 
         queryset = (
             Message.objects.filter(chat=chat)
+            .exclude(user_states__user=request.user, user_states__is_hidden=True)
             .select_related("sender", "reply_to", "reply_to__sender")
             .prefetch_related("receipts", "attachments__media")
             .order_by("-created_at")
@@ -209,12 +235,62 @@ class ChatMessagesAPIView(generics.GenericAPIView):
         )
         serializer.is_valid(raise_exception=True)
         message = serializer.save()
-
         output = MessageListSerializer(message, context={"request": request})
         response_status = (
             status.HTTP_200_OK if getattr(serializer, "was_existing", False) else status.HTTP_201_CREATED
         )
         return Response(output.data, status=response_status)
+
+
+class ChatMessageDetailAPIView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_message(self):
+        return get_user_message_or_404(
+            self.request.user,
+            self.kwargs["chat_uuid"],
+            self.kwargs["message_uuid"],
+        )
+
+    def patch(self, request, *args, **kwargs):
+        message = self.get_message()
+        serializer = MessageUpdateSerializer(
+            data=request.data,
+            context={"request": request, "message": message},
+        )
+        serializer.is_valid(raise_exception=True)
+        message = serializer.save()
+        output = MessageListSerializer(message, context={"request": request})
+        return Response(output.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, *args, **kwargs):
+        message = self.get_message()
+        serializer = MessageDeleteSerializer(
+            data=request.data or {},
+            context={"request": request, "message": message},
+        )
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save()
+
+        if result["delete_for"] == MessageDeleteSerializer.DELETE_FOR_EVERYONE:
+            output = MessageListSerializer(result["message"], context={"request": request})
+            return Response(
+                {
+                    "detail": "Message deleted for everyone",
+                    "delete_for": "everyone",
+                    "message": output.data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {
+                "detail": "Message deleted for current user",
+                "delete_for": "me",
+                "message_uuid": str(message.uuid),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class ChatMarkReadAPIView(generics.GenericAPIView):
@@ -267,7 +343,6 @@ class ChatPinAPIView(generics.GenericAPIView):
         membership = get_user_membership_or_404(request.user, self.kwargs["chat_uuid"])
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         serializer.update_membership(membership, "is_pinned", serializer.validated_data["is_pinned"])
 
         return Response(
@@ -289,7 +364,6 @@ class ChatArchiveAPIView(generics.GenericAPIView):
         membership = get_user_membership_or_404(request.user, self.kwargs["chat_uuid"])
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         serializer.update_membership(membership, "is_archived", serializer.validated_data["is_archived"])
 
         return Response(
@@ -311,7 +385,6 @@ class ChatMuteAPIView(generics.GenericAPIView):
         membership = get_user_membership_or_404(request.user, self.kwargs["chat_uuid"])
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         serializer.update_membership(membership, "is_muted", serializer.validated_data["is_muted"])
 
         return Response(

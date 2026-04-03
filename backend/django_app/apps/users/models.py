@@ -3,7 +3,6 @@ from django.db import models
 from django.utils import timezone
 
 from apps.common.models import UUIDTimeStampedModel
-
 from .managers import UserManager
 
 
@@ -82,3 +81,42 @@ class OneTimeCode(UUIDTimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.email} | {self.purpose}"
+
+
+class DevicePushToken(UUIDTimeStampedModel):
+    class Provider(models.TextChoices):
+        FCM = "fcm", "FCM"
+        APNS = "apns", "APNs"
+
+    class Platform(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+        WEB = "web", "Web"
+
+    user = models.ForeignKey(
+        "users.User",
+        on_delete=models.CASCADE,
+        related_name="push_tokens",
+    )
+    token = models.CharField(max_length=512, unique=True, db_index=True)
+    provider = models.CharField(max_length=20, choices=Provider.choices, db_index=True)
+    platform = models.CharField(max_length=20, choices=Platform.choices, db_index=True)
+    device_id = models.CharField(max_length=128, blank=True, db_index=True)
+    device_name = models.CharField(max_length=120, blank=True)
+    app_version = models.CharField(max_length=40, blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    last_seen_at = models.DateTimeField(default=timezone.now, db_index=True)
+    meta = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        db_table = "user_device_push_tokens"
+        ordering = ["-last_seen_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["user", "is_active"]),
+            models.Index(fields=["provider", "platform", "is_active"]),
+            models.Index(fields=["device_id"]),
+            models.Index(fields=["last_seen_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} | {self.platform} | {self.provider}"

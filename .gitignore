@@ -7,6 +7,8 @@ __pycache__/
 *.log
 .env
 .env.*
+.json*
+firebase-service-account.json
 *.swp
 .DS_Store
 .idea/

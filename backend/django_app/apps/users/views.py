@@ -8,6 +8,7 @@ from rest_framework import permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import OneTimeCode, User
@@ -24,7 +25,6 @@ from .serializers import (
 )
 from .tasks import send_password_reset_email, send_verification_email
 from .utils import build_signup_token, generate_otp_code, hash_otp_code, parse_signup_token
-
 
 OTP_TTL_MINUTES = 10
 
@@ -65,7 +65,7 @@ def _get_active_code(email: str, purpose: str):
 class RegisterAPIView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_scope = "auth_register"
-    
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -110,6 +110,7 @@ class RegisterAPIView(APIView):
             ).update(expires_at=timezone.now())
 
             code = generate_otp_code()
+
             OneTimeCode.objects.create(
                 user=user,
                 email=email,
@@ -133,6 +134,7 @@ class RegisterAPIView(APIView):
 class VerifyEmailAPIView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_scope = "auth_verify"
+
     def post(self, request):
         serializer = VerifyEmailSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -183,7 +185,7 @@ class VerifyEmailAPIView(APIView):
 class SetPasswordAPIView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_scope = "auth_set_password"
-    
+
     def post(self, request):
         serializer = SetPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -253,7 +255,6 @@ class LoginAPIView(APIView):
         password = serializer.validated_data["password"]
 
         user = User.objects.filter(email__iexact=email).first()
-
         if not user or not user.check_password(password):
             return Response(
                 {"detail": "Invalid email or password"},
@@ -288,6 +289,16 @@ class LoginAPIView(APIView):
         )
 
 
+class TokenRefreshAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_scope = "auth_login"
+
+    def post(self, request):
+        serializer = TokenRefreshSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+
 class PasswordResetAPIView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_scope = "auth_password_reset"
@@ -297,8 +308,8 @@ class PasswordResetAPIView(APIView):
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data["email"].strip().lower()
-
         user = User.objects.filter(email__iexact=email).first()
+
         if not user:
             return Response(
                 {"detail": "If the account exists, reset instructions were sent"},
@@ -312,6 +323,7 @@ class PasswordResetAPIView(APIView):
         ).update(expires_at=timezone.now())
 
         code = generate_otp_code()
+
         OneTimeCode.objects.create(
             user=user,
             email=email,

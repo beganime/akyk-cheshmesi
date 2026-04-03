@@ -9,6 +9,7 @@ from .views import (
     PasswordResetConfirmAPIView,
     RegisterAPIView,
     SetPasswordAPIView,
+    TokenRefreshAPIView,
     VerifyEmailAPIView,
 )
 
@@ -17,6 +18,7 @@ urlpatterns = [
     path("auth/verify-email/", VerifyEmailAPIView.as_view(), name="auth-verify-email"),
     path("auth/set-password/", SetPasswordAPIView.as_view(), name="auth-set-password"),
     path("auth/login/", LoginAPIView.as_view(), name="auth-login"),
+    path("auth/refresh/", TokenRefreshAPIView.as_view(), name="auth-refresh"),
     path("auth/password-reset/", PasswordResetAPIView.as_view(), name="auth-password-reset"),
     path(
         "auth/password-reset/confirm/",
@@ -26,5 +28,5 @@ urlpatterns = [
     path("users/me/", MeAPIView.as_view(), name="users-me"),
     path("users/search/", SearchUsersAPIView.as_view(), name="users-search"),
     path("presence/", PresenceBulkAPIView.as_view(), name="presence-bulk"),
-    path("presence/<uuid:user_uuid>/", PresenceDetailAPIView.as_view(), name="presence-detail"),
+    path("presence//", PresenceDetailAPIView.as_view(), name="presence-detail"),
 ]
