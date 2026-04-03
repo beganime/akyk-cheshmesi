@@ -322,6 +322,12 @@ if USE_S3:
     AWS_DEFAULT_ACL = None
     AWS_S3_FILE_OVERWRITE = False
 
+    aws_s3_verify_raw = env("AWS_S3_VERIFY", default="").strip()
+    if aws_s3_verify_raw.lower() in {"false", "0", "no"}:
+        AWS_S3_VERIFY = False
+    else:
+        AWS_S3_VERIFY = aws_s3_verify_raw or None
+
     STORAGES = {
         "default": {
             "BACKEND": "storages.backends.s3.S3Storage",
@@ -335,6 +341,7 @@ if USE_S3:
                 "querystring_auth": AWS_QUERYSTRING_AUTH,
                 "file_overwrite": AWS_S3_FILE_OVERWRITE,
                 "custom_domain": AWS_S3_CUSTOM_DOMAIN or None,
+                "verify": AWS_S3_VERIFY,
             },
         },
         "staticfiles": {
@@ -350,7 +357,6 @@ else:
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
-
 
 LOGGING = {
     "version": 1,
