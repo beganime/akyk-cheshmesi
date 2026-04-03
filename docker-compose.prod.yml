@@ -42,6 +42,7 @@ services:
         condition: service_healthy
     command: ["gunicorn"]
     volumes:
+      - ./secrets:/app/secrets:ro
       - static_data:/app/var/static
       - media_data:/app/var/media
     healthcheck:
