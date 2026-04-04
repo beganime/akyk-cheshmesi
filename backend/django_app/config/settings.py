@@ -105,6 +105,8 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "config.urls"
 
+TASKS_EAGER = env.bool("TASKS_EAGER", default=False)
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",

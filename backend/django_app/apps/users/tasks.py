@@ -3,7 +3,15 @@ from django.conf import settings
 from django.core.mail import send_mail
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+import smtplib
+import socket
+
+@shared_task(
+    bind=True,
+    autoretry_for=(smtplib.SMTPException, socket.timeout, OSError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def send_verification_email(self, email: str, code: str):
     subject = "Akyl Cheshmesi — код подтверждения email"
     message = (
@@ -21,8 +29,12 @@ def send_verification_email(self, email: str, code: str):
         fail_silently=False,
     )
 
-
-@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+@shared_task(
+    bind=True,
+    autoretry_for=(smtplib.SMTPException, socket.timeout, OSError),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 5},
+)
 def send_password_reset_email(self, email: str, code: str):
     subject = "Akyl Cheshmesi — код сброса пароля"
     message = (

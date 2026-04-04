@@ -28,12 +28,22 @@ from .utils import build_signup_token, generate_otp_code, hash_otp_code, parse_s
 
 OTP_TTL_MINUTES = 10
 
+from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 def _dispatch_task(task_func, *args):
-    if settings.DEBUG:
-        task_func(*args)
-    else:
-        task_func.delay(*args)
+    tasks_eager = getattr(settings, "TASKS_EAGER", False)
+
+    if tasks_eager:
+        return task_func(*args)
+
+    try:
+        return task_func.delay(*args)
+    except Exception:
+        logger.exception("Failed to enqueue task %s", getattr(task_func, "name", str(task_func)))
+        raise
 
 
 def _issue_tokens_for_user(user: User) -> dict:
