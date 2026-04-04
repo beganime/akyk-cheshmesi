@@ -1,7 +1,7 @@
 import os
 import uuid
-
 import boto3
+
 from botocore.client import Config as BotoConfig
 from botocore.exceptions import ClientError
 from django.conf import settings
@@ -27,7 +27,10 @@ def build_s3_client():
         endpoint_url=getattr(settings, "AWS_S3_ENDPOINT_URL", None) or None,
         aws_access_key_id=getattr(settings, "AWS_ACCESS_KEY_ID", None) or None,
         aws_secret_access_key=getattr(settings, "AWS_SECRET_ACCESS_KEY", None) or None,
-        config=BotoConfig(signature_version="s3v4"),
+        config=BotoConfig(
+            signature_version="s3v4",
+            s3={"addressing_style": "path"},
+        ),
     )
 
 
@@ -37,15 +40,25 @@ def build_media_object_key(user_uuid: str, original_name: str) -> str:
     return f"uploads/{user_uuid}/{uuid.uuid4().hex}{ext}"
 
 
-def build_s3_file_url(bucket_name: str, object_key: str) -> str:
+def build_s3_public_file_url(bucket_name: str, object_key: str) -> str:
     custom_domain = getattr(settings, "AWS_S3_CUSTOM_DOMAIN", "") or ""
     if custom_domain:
         return f"https://{custom_domain.rstrip('/')}/{object_key}"
 
-    endpoint = getattr(settings, "AWS_S3_ENDPOINT_URL", "") or ""
-    endpoint = endpoint.rstrip("/")
+    endpoint = (getattr(settings, "AWS_S3_ENDPOINT_URL", "") or "").rstrip("/")
     return f"{endpoint}/{bucket_name}/{object_key}"
 
+
+def build_s3_presigned_get_url(bucket_name: str, object_key: str, expires_in: int = 3600) -> str:
+    s3_client = build_s3_client()
+    return s3_client.generate_presigned_url(
+        ClientMethod="get_object",
+        Params={
+            "Bucket": bucket_name,
+            "Key": object_key,
+        },
+        ExpiresIn=expires_in,
+    )
 
 class MyUploadedMediaListAPIView(generics.ListAPIView):
     serializer_class = UploadedMediaSerializer
@@ -157,7 +170,7 @@ class MediaCompleteAPIView(generics.GenericAPIView):
         media.status = UploadedMedia.Status.UPLOADED
         media.meta = {
             **media.meta,
-            "file_url": build_s3_file_url(media.bucket_name, media.object_key),
+            "file_url": build_s3_presigned_get_url(media.bucket_name, media.object_key, expires_in=3600),
         }
         media.save(update_fields=["status", "meta", "updated_at"])
 
