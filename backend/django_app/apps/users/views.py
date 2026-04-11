@@ -42,8 +42,11 @@ def _dispatch_task(task_func, *args):
     try:
         return task_func.delay(*args)
     except Exception:
-        logger.exception("Failed to enqueue task %s", getattr(task_func, "name", str(task_func)))
-        raise
+        logger.exception(
+            "Failed to enqueue task %s. Falling back to sync execution.",
+            getattr(task_func, "name", str(task_func)),
+        )
+        return task_func(*args)
 
 
 def _issue_tokens_for_user(user: User) -> dict:

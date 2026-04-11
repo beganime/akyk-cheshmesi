@@ -1,7 +1,7 @@
 import os
 import uuid
-import boto3
 
+import boto3
 from botocore.client import Config as BotoConfig
 from botocore.exceptions import ClientError
 from django.conf import settings
@@ -40,16 +40,23 @@ def build_media_object_key(user_uuid: str, original_name: str) -> str:
     return f"uploads/{user_uuid}/{uuid.uuid4().hex}{ext}"
 
 
-def build_s3_public_file_url(bucket_name: str, object_key: str) -> str:
-    custom_domain = getattr(settings, "AWS_S3_CUSTOM_DOMAIN", "") or ""
-    if custom_domain:
-        return f"https://{custom_domain.rstrip('/')}/{object_key}"
+def build_s3_file_url(bucket_name: str, object_key: str) -> str:
+    """
+    Возвращает URL для доступа к объекту:
+    - если файл публичный: обычный URL
+    - если файл приватный: временный presigned GET URL
+    """
+    is_public_read = getattr(settings, "AWS_S3_PUBLIC_READ", False)
 
-    endpoint = (getattr(settings, "AWS_S3_ENDPOINT_URL", "") or "").rstrip("/")
-    return f"{endpoint}/{bucket_name}/{object_key}"
+    if is_public_read:
+        custom_domain = getattr(settings, "AWS_S3_CUSTOM_DOMAIN", "") or ""
+        if custom_domain:
+            return f"https://{custom_domain.rstrip('/')}/{object_key}"
 
+        endpoint = getattr(settings, "AWS_S3_ENDPOINT_URL", "") or ""
+        endpoint = endpoint.rstrip("/")
+        return f"{endpoint}/{bucket_name}/{object_key}"
 
-def build_s3_presigned_get_url(bucket_name: str, object_key: str, expires_in: int = 3600) -> str:
     s3_client = build_s3_client()
     return s3_client.generate_presigned_url(
         ClientMethod="get_object",
@@ -57,8 +64,9 @@ def build_s3_presigned_get_url(bucket_name: str, object_key: str, expires_in: in
             "Bucket": bucket_name,
             "Key": object_key,
         },
-        ExpiresIn=expires_in,
+        ExpiresIn=getattr(settings, "AWS_S3_PRESIGNED_GET_EXPIRES", 3600),
     )
+
 
 class MyUploadedMediaListAPIView(generics.ListAPIView):
     serializer_class = UploadedMediaSerializer
@@ -77,7 +85,9 @@ class MediaPresignAPIView(generics.GenericAPIView):
     def post(self, request):
         if not settings.USE_S3:
             return Response(
-                {"detail": "USE_S3 is disabled. Use /api/v1/media/upload-local/ in local development."},
+                {
+                    "detail": "USE_S3 is disabled. Use /api/v1/media/upload-local/ in local development."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -87,6 +97,7 @@ class MediaPresignAPIView(generics.GenericAPIView):
         filename = serializer.validated_data["filename"]
         content_type = serializer.validated_data.get("content_type", "").strip()
         size = serializer.validated_data["size"]
+        is_public = serializer.validated_data.get("is_public", False)
 
         try:
             validated = validate_upload_input(filename, content_type, size)
@@ -105,16 +116,20 @@ class MediaPresignAPIView(generics.GenericAPIView):
             object_key=object_key,
             bucket_name=settings.AWS_STORAGE_BUCKET_NAME,
             status=UploadedMedia.Status.PENDING,
+            is_public=is_public,
         )
 
         s3_client = build_s3_client()
+
+        upload_params = {
+            "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
+            "Key": object_key,
+            "ContentType": validated.content_type,
+        }
+
         upload_url = s3_client.generate_presigned_url(
             ClientMethod="put_object",
-            Params={
-                "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
-                "Key": object_key,
-                "ContentType": validated.content_type,
-            },
+            Params=upload_params,
             ExpiresIn=900,
         )
 
@@ -162,6 +177,12 @@ class MediaCompleteAPIView(generics.GenericAPIView):
         try:
             s3_client.head_object(Bucket=media.bucket_name, Key=media.object_key)
         except ClientError as exc:
+            media.status = UploadedMedia.Status.FAILED
+            media.meta = {
+                **media.meta,
+                "upload_error": str(exc),
+            }
+            media.save(update_fields=["status", "meta", "updated_at"])
             return Response(
                 {"detail": f"S3 object is not available yet: {exc}"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -170,7 +191,7 @@ class MediaCompleteAPIView(generics.GenericAPIView):
         media.status = UploadedMedia.Status.UPLOADED
         media.meta = {
             **media.meta,
-            "file_url": build_s3_presigned_get_url(media.bucket_name, media.object_key, expires_in=3600),
+            "s3_uploaded": True,
         }
         media.save(update_fields=["status", "meta", "updated_at"])
 
