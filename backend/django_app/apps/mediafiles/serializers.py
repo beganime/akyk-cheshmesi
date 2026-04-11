@@ -120,6 +120,7 @@ class MediaPresignRequestSerializer(serializers.Serializer):
     content_type = serializers.CharField(max_length=120, required=False, allow_blank=True)
     size = serializers.IntegerField(min_value=1)
     is_public = serializers.BooleanField(required=False, default=False)
+    duration_seconds = serializers.IntegerField(required=False, min_value=1)
 
 
 class MediaCompleteSerializer(serializers.Serializer):
@@ -129,6 +130,7 @@ class MediaCompleteSerializer(serializers.Serializer):
 class LocalMediaUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
     is_public = serializers.BooleanField(required=False, default=False)
+    duration_seconds = serializers.IntegerField(required=False, min_value=1)
 
     def validate_file(self, value):
         if value.size <= 0:

@@ -4,7 +4,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from unfold.admin import ModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 
-from .models import OneTimeCode, User
+from .models import OneTimeCode, User, UserContact
 
 
 @admin.register(User)
@@ -45,8 +45,10 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
                     "first_name",
                     "last_name",
                     "date_of_birth",
+                    "phone_number",
                     "avatar",
                     "bio",
+                    "show_online_status",
                     "is_email_verified",
                     "registration_completed",
                 )
@@ -105,3 +107,10 @@ class OneTimeCodeAdmin(ModelAdmin):
         "created_at",
         "updated_at",
     )
+
+
+@admin.register(UserContact)
+class UserContactAdmin(ModelAdmin):
+    list_display = ("id", "owner", "contact_user", "source", "last_interaction_at", "is_favorite")
+    list_filter = ("source", "is_favorite", "last_interaction_at")
+    search_fields = ("owner__email", "contact_user__email", "owner__username", "contact_user__username")

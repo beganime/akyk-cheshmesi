@@ -6,6 +6,9 @@ from apps.mediafiles.serializers import MediaAttachmentBriefSerializer
 from apps.messaging.models import Message, MessageReceipt, MessageUserState
 from apps.users.public_serializers import UserShortSerializer
 
+VIDEO_MAX_DURATION_SECONDS = 30
+AUDIO_MAX_DURATION_SECONDS = 300
+
 
 class ReplyMessageShortSerializer(serializers.ModelSerializer):
     sender = UserShortSerializer(read_only=True)
@@ -178,6 +181,42 @@ class MessageCreateSerializer(serializers.Serializer):
                 ordered_media.append(media)
 
             uploaded_media = ordered_media
+
+        if message_type == Message.MessageType.IMAGE:
+            if len(uploaded_media) == 0:
+                raise serializers.ValidationError({"attachment_uuids": "Image message requires attachments"})
+            if len(uploaded_media) > 10:
+                raise serializers.ValidationError({"attachment_uuids": "Only up to 10 images per message"})
+            if any(media.media_kind != UploadedMedia.MediaKind.IMAGE for media in uploaded_media):
+                raise serializers.ValidationError({"attachment_uuids": "Image message accepts only image attachments"})
+
+        if message_type == Message.MessageType.VIDEO:
+            if len(uploaded_media) != 1:
+                raise serializers.ValidationError({"attachment_uuids": "Video message requires exactly one video"})
+            media = uploaded_media[0]
+            if media.media_kind != UploadedMedia.MediaKind.VIDEO:
+                raise serializers.ValidationError({"attachment_uuids": "Attachment must be video"})
+            duration = int((media.meta or {}).get("duration_seconds") or 0)
+            if duration <= 0:
+                raise serializers.ValidationError({"attachment_uuids": "Video duration_seconds is required"})
+            if duration > VIDEO_MAX_DURATION_SECONDS:
+                raise serializers.ValidationError(
+                    {"attachment_uuids": f"Video duration must be <= {VIDEO_MAX_DURATION_SECONDS}s"}
+                )
+
+        if message_type == Message.MessageType.AUDIO:
+            if len(uploaded_media) != 1:
+                raise serializers.ValidationError({"attachment_uuids": "Voice message requires exactly one audio"})
+            media = uploaded_media[0]
+            if media.media_kind != UploadedMedia.MediaKind.AUDIO:
+                raise serializers.ValidationError({"attachment_uuids": "Attachment must be audio"})
+            duration = int((media.meta or {}).get("duration_seconds") or 0)
+            if duration <= 0:
+                raise serializers.ValidationError({"attachment_uuids": "Audio duration_seconds is required"})
+            if duration > AUDIO_MAX_DURATION_SECONDS:
+                raise serializers.ValidationError(
+                    {"attachment_uuids": f"Audio duration must be <= {AUDIO_MAX_DURATION_SECONDS}s"}
+                )
 
         if not text and not uploaded_media and message_type == Message.MessageType.TEXT:
             raise serializers.ValidationError({"text": "Text is required for text messages without attachments"})

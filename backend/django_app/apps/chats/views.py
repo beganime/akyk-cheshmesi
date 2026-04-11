@@ -13,6 +13,7 @@ from apps.messaging.serializers import (
     MessageListSerializer,
     MessageUpdateSerializer,
 )
+from apps.users.contact_views import sync_contacts_from_chats
 
 from .serializers import (
     ChatArchiveSerializer,
@@ -70,6 +71,7 @@ class ChatListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         request_user = self.request.user
+        sync_contacts_from_chats(request_user)
 
         last_message_qs = Message.objects.filter(chat=OuterRef("pk")).order_by("-created_at")
         current_member_qs = ChatMember.objects.filter(

@@ -18,6 +18,18 @@ from .serializers import (
 )
 from .validators import validate_upload_input
 
+VIDEO_MAX_DURATION_SECONDS = 30
+AUDIO_MAX_DURATION_SECONDS = 300
+
+
+def validate_media_duration(media_kind: str, duration_seconds: int | None):
+    if duration_seconds is None:
+        return
+    if media_kind == UploadedMedia.MediaKind.VIDEO and duration_seconds > VIDEO_MAX_DURATION_SECONDS:
+        raise ValueError(f"Video duration exceeds {VIDEO_MAX_DURATION_SECONDS} seconds")
+    if media_kind == UploadedMedia.MediaKind.AUDIO and duration_seconds > AUDIO_MAX_DURATION_SECONDS:
+        raise ValueError(f"Audio duration exceeds {AUDIO_MAX_DURATION_SECONDS} seconds")
+
 
 def build_s3_client():
     session = boto3.session.Session()
@@ -98,9 +110,11 @@ class MediaPresignAPIView(generics.GenericAPIView):
         content_type = serializer.validated_data.get("content_type", "").strip()
         size = serializer.validated_data["size"]
         is_public = serializer.validated_data.get("is_public", False)
+        duration_seconds = serializer.validated_data.get("duration_seconds")
 
         try:
             validated = validate_upload_input(filename, content_type, size)
+            validate_media_duration(validated.media_kind, duration_seconds)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -117,6 +131,7 @@ class MediaPresignAPIView(generics.GenericAPIView):
             bucket_name=settings.AWS_STORAGE_BUCKET_NAME,
             status=UploadedMedia.Status.PENDING,
             is_public=is_public,
+            meta={"duration_seconds": duration_seconds} if duration_seconds else {},
         )
 
         s3_client = build_s3_client()
@@ -216,6 +231,7 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
 
         file_obj = serializer.validated_data["file"]
         is_public = serializer.validated_data.get("is_public", False)
+        duration_seconds = serializer.validated_data.get("duration_seconds")
 
         try:
             validated = validate_upload_input(
@@ -223,6 +239,7 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
                 getattr(file_obj, "content_type", "") or "",
                 file_obj.size,
             )
+            validate_media_duration(validated.media_kind, duration_seconds)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -237,6 +254,30 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
             is_public=is_public,
             object_key=build_media_object_key(str(request.user.uuid), file_obj.name),
             file=file_obj,
+            meta={"duration_seconds": duration_seconds} if duration_seconds else {},
         )
 
         return Response(UploadedMediaSerializer(media).data, status=status.HTTP_201_CREATED)
+
+
+class MediaDownloadAPIView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        media = UploadedMedia.objects.filter(uuid=kwargs["media_uuid"], status=UploadedMedia.Status.UPLOADED).first()
+        if not media:
+            return Response({"detail": "Media not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if media.storage_provider == UploadedMedia.StorageProvider.LOCAL and media.file:
+            return Response({"download_url": media.file.url}, status=status.HTTP_200_OK)
+
+        if media.storage_provider == UploadedMedia.StorageProvider.S3:
+            try:
+                return Response(
+                    {"download_url": build_s3_file_url(media.bucket_name, media.object_key)},
+                    status=status.HTTP_200_OK,
+                )
+            except Exception:
+                return Response({"detail": "Failed to build download URL"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"detail": "Download is not available"}, status=status.HTTP_400_BAD_REQUEST)
