@@ -81,6 +81,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             "date_of_birth",
             "avatar",
             "bio",
+            "show_online_status",
             "is_email_verified",
             "registration_completed",
         )
@@ -105,6 +106,7 @@ class UserAuthResponseSerializer(serializers.ModelSerializer):
             "date_of_birth",
             "avatar",
             "bio",
+            "show_online_status",
             "is_email_verified",
             "registration_completed",
         )
@@ -112,19 +114,25 @@ class UserAuthResponseSerializer(serializers.ModelSerializer):
 
 class UserSearchSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
+    badge = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = (
             "uuid",
+            "email",
             "username",
             "first_name",
             "last_name",
             "full_name",
             "avatar",
             "bio",
+            "badge",
         )
 
     def get_full_name(self, obj):
         full_name = f"{obj.first_name or ''} {obj.last_name or ''}".strip()
         return full_name
+
+    def get_badge(self, obj):
+        return "staff" if getattr(obj, "is_staff", False) else ""

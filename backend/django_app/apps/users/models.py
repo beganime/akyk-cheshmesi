@@ -20,6 +20,7 @@ class User(AbstractUser, UUIDTimeStampedModel):
     date_of_birth = models.DateField(null=True, blank=True)
     avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
     bio = models.CharField(max_length=160, blank=True)
+    show_online_status = models.BooleanField(default=True, db_index=True)
     is_email_verified = models.BooleanField(default=False, db_index=True)
     registration_completed = models.BooleanField(default=False, db_index=True)
 
@@ -36,6 +37,7 @@ class User(AbstractUser, UUIDTimeStampedModel):
             models.Index(fields=["uuid"]),
             models.Index(fields=["email"]),
             models.Index(fields=["username"]),
+            models.Index(fields=["show_online_status"]),
             models.Index(fields=["is_email_verified"]),
             models.Index(fields=["registration_completed"]),
         ]
@@ -120,3 +122,33 @@ class DevicePushToken(UUIDTimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.user_id} | {self.platform} | {self.provider}"
+
+
+class UserContact(UUIDTimeStampedModel):
+    owner = models.ForeignKey(
+        "users.User",
+        on_delete=models.CASCADE,
+        related_name="contacts",
+    )
+    contact_user = models.ForeignKey(
+        "users.User",
+        on_delete=models.CASCADE,
+        related_name="in_contacts_of",
+    )
+    source = models.CharField(max_length=32, default="chat", db_index=True)
+    last_interaction_at = models.DateTimeField(default=timezone.now, db_index=True)
+    is_favorite = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        db_table = "user_contacts"
+        ordering = ["-last_interaction_at", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["owner", "contact_user"], name="uniq_user_contact"),
+        ]
+        indexes = [
+            models.Index(fields=["owner", "last_interaction_at"]),
+            models.Index(fields=["owner", "is_favorite"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.owner_id} -> {self.contact_user_id}"

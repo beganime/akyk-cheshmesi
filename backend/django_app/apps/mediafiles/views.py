@@ -240,3 +240,26 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
         )
 
         return Response(UploadedMediaSerializer(media).data, status=status.HTTP_201_CREATED)
+
+
+class MediaDownloadAPIView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        media = UploadedMedia.objects.filter(uuid=kwargs["media_uuid"], status=UploadedMedia.Status.UPLOADED).first()
+        if not media:
+            return Response({"detail": "Media not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if media.storage_provider == UploadedMedia.StorageProvider.LOCAL and media.file:
+            return Response({"download_url": media.file.url}, status=status.HTTP_200_OK)
+
+        if media.storage_provider == UploadedMedia.StorageProvider.S3:
+            try:
+                return Response(
+                    {"download_url": build_s3_file_url(media.bucket_name, media.object_key)},
+                    status=status.HTTP_200_OK,
+                )
+            except Exception:
+                return Response({"detail": "Failed to build download URL"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"detail": "Download is not available"}, status=status.HTTP_400_BAD_REQUEST)

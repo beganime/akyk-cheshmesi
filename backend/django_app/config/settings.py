@@ -90,6 +90,8 @@ INSTALLED_APPS = [
     "apps.mediafiles.apps.MediaFilesConfig",
     "apps.stickers.apps.StickersConfig",
     "apps.complaints.apps.ComplaintsConfig",
+    "apps.bots.apps.BotsConfig",
+    "apps.releases.apps.ReleasesConfig",
 ]
 
 MIDDLEWARE = [
@@ -432,6 +434,23 @@ UNFOLD = {
                         "title": _("Messages"),
                         "icon": "chat",
                         "link": reverse_lazy("admin:messaging_message_changelist"),
+                    },
+                    {
+                        "title": _("Bot commands"),
+                        "icon": "smart_toy",
+                        "link": reverse_lazy("admin:bots_botcommand_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Applications"),
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Releases"),
+                        "icon": "system_update",
+                        "link": reverse_lazy("admin:releases_apprelease_changelist"),
                     },
                 ],
             },
