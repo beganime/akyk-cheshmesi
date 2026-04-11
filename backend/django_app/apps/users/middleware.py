@@ -38,7 +38,7 @@ class TrackUserActivityMiddleware:
 
             payload = {
                 "user_uuid": user_uuid,
-                "status": "online",
+                "status": "online" if user.show_online_status else "offline",
                 "connection_count": max(current_count, 0),
                 "last_seen_at": now_iso,
             }

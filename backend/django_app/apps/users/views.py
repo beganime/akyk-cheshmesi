@@ -440,6 +440,7 @@ class UserSearchAPIView(APIView):
             .exclude(id=request.user.id)
             .filter(
                 Q(username__icontains=query)
+                | Q(email__icontains=query)
                 | Q(first_name__icontains=query)
                 | Q(last_name__icontains=query)
             )
