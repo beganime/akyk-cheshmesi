@@ -18,6 +18,7 @@ class User(AbstractUser, UUIDTimeStampedModel):
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
+    phone_number = models.CharField(max_length=32, blank=True, db_index=True)
     avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
     bio = models.CharField(max_length=160, blank=True)
     show_online_status = models.BooleanField(default=True, db_index=True)
@@ -37,6 +38,7 @@ class User(AbstractUser, UUIDTimeStampedModel):
             models.Index(fields=["uuid"]),
             models.Index(fields=["email"]),
             models.Index(fields=["username"]),
+            models.Index(fields=["phone_number"]),
             models.Index(fields=["show_online_status"]),
             models.Index(fields=["is_email_verified"]),
             models.Index(fields=["registration_completed"]),
