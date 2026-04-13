@@ -15,6 +15,7 @@ def build_s3_client():
         endpoint_url=getattr(settings, "AWS_S3_ENDPOINT_URL", None) or None,
         aws_access_key_id=getattr(settings, "AWS_ACCESS_KEY_ID", None) or None,
         aws_secret_access_key=getattr(settings, "AWS_SECRET_ACCESS_KEY", None) or None,
+        verify=getattr(settings, "AWS_S3_VERIFY", None),
         config=BotoConfig(
             signature_version="s3v4",
             s3={"addressing_style": "path"},
@@ -70,15 +71,15 @@ class UploadedMediaSerializer(serializers.ModelSerializer):
         )
 
     def get_file_url(self, obj):
-        if obj.file:
-            try:
-                return obj.file.url
-            except Exception:
-                return None
-
         if obj.storage_provider == UploadedMedia.StorageProvider.S3 and obj.status == UploadedMedia.Status.UPLOADED:
             try:
                 return get_s3_file_url(obj)
+            except Exception:
+                return None
+
+        if obj.file:
+            try:
+                return obj.file.url
             except Exception:
                 return None
 
@@ -100,15 +101,15 @@ class MediaAttachmentBriefSerializer(serializers.ModelSerializer):
         )
 
     def get_file_url(self, obj):
-        if obj.file:
-            try:
-                return obj.file.url
-            except Exception:
-                return None
-
         if obj.storage_provider == UploadedMedia.StorageProvider.S3 and obj.status == UploadedMedia.Status.UPLOADED:
             try:
                 return get_s3_file_url(obj)
+            except Exception:
+                return None
+
+        if obj.file:
+            try:
+                return obj.file.url
             except Exception:
                 return None
 
@@ -120,6 +121,7 @@ class MediaPresignRequestSerializer(serializers.Serializer):
     content_type = serializers.CharField(max_length=120, required=False, allow_blank=True)
     size = serializers.IntegerField(min_value=1)
     is_public = serializers.BooleanField(required=False, default=False)
+    duration_seconds = serializers.IntegerField(required=False, min_value=1)
 
 
 class MediaCompleteSerializer(serializers.Serializer):
@@ -129,6 +131,7 @@ class MediaCompleteSerializer(serializers.Serializer):
 class LocalMediaUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
     is_public = serializers.BooleanField(required=False, default=False)
+    duration_seconds = serializers.IntegerField(required=False, min_value=1)
 
     def validate_file(self, value):
         if value.size <= 0:

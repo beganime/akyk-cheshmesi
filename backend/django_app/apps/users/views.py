@@ -1,4 +1,5 @@
 from datetime import timedelta
+import logging
 
 from django.conf import settings
 from django.db import transaction
@@ -28,15 +29,21 @@ from .utils import build_signup_token, generate_otp_code, hash_otp_code, parse_s
 
 OTP_TTL_MINUTES = 10
 
-from django.conf import settings
-import logging
-
 logger = logging.getLogger(__name__)
 
-def _dispatch_task(task_func, *args):
-    tasks_eager = getattr(settings, "TASKS_EAGER", False)
 
-    if tasks_eager:
+def _dispatch_task(task_func, *args):
+    """
+    Для email-писем по регистрации/сбросу пароля по умолчанию шлём синхронно,
+    потому что при живом брокере и мёртвом celery worker `.delay()` отработает
+    без ошибки, но письмо так и не уйдёт.
+    Чтобы вернуть асинхронную отправку, выстави AUTH_EMAILS_ASYNC=true.
+    """
+    run_async = bool(getattr(settings, "AUTH_EMAILS_ASYNC", False)) and not bool(
+        getattr(settings, "TASKS_EAGER", False)
+    )
+
+    if not run_async:
         return task_func(*args)
 
     try:

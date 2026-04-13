@@ -12,7 +12,9 @@ env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     USE_S3=(bool, False),
     EMAIL_USE_SSL=(bool, True),
-    AWS_QUERYSTRING_AUTH=(bool, False),
+    AWS_QUERYSTRING_AUTH=(bool, True),
+    AWS_S3_PUBLIC_READ=(bool, False),
+    AWS_S3_PRESIGNED_GET_EXPIRES=(int, 3600),
     REDIS_PROFILE_TTL_SECONDS=(int, 86400),
     REDIS_CHAT_TTL_SECONDS=(int, 86400),
     REDIS_HISTORY_LIST_LIMIT=(int, 50),
@@ -21,6 +23,7 @@ env = environ.Env(
     MEDIA_MAX_UPLOAD_SIZE_BYTES=(int, 26214400),
     SECURE_COOKIES=(bool, False),
     ENABLE_SECURITY_HEADERS=(bool, True),
+    AUTH_EMAILS_ASYNC=(bool, False),
 )
 
 MEDIA_MAX_UPLOAD_SIZE_BYTES = env.int("MEDIA_MAX_UPLOAD_SIZE_BYTES", default=26214400)
@@ -33,10 +36,13 @@ MEDIA_ALLOWED_CONTENT_TYPES = env.list(
         "image/gif",
         "video/mp4",
         "video/quicktime",
+        "video/webm",
         "audio/mpeg",
         "audio/wav",
         "audio/x-wav",
         "audio/mp4",
+        "audio/webm",
+        "audio/ogg",
         "application/pdf",
         "text/plain",
         "text/csv",
@@ -59,7 +65,17 @@ if env_file.exists():
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="unsafe-dev-key")
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
 
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["127.0.0.1", "localhost","akylcheshmesi.ru","www.akylcheshmesi.ru"])
+ALLOWED_HOSTS = env.list(
+    "DJANGO_ALLOWED_HOSTS",
+    default=[
+        "127.0.0.1",
+        "localhost",
+        "akyl-cheshmesi.ru",
+        "www.akyl-cheshmesi.ru",
+        "akylcheshmesi.ru",
+        "www.akylcheshmesi.ru",
+    ],
+)
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -109,6 +125,7 @@ MIDDLEWARE = [
 ROOT_URLCONF = "config.urls"
 
 TASKS_EAGER = env.bool("TASKS_EAGER", default=False)
+AUTH_EMAILS_ASYNC = env.bool("AUTH_EMAILS_ASYNC", default=False)
 
 TEMPLATES = [
     {
@@ -226,12 +243,28 @@ SPECTACULAR_SETTINGS = {
 
 CORS_ALLOWED_ORIGINS = env.list(
     "DJANGO_CORS_ALLOWED_ORIGINS",
-    default=["http://127.0.0.1:3000", "http://localhost:3000","http://localhost:8081"],
+    default=[
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+        "http://localhost:8081",
+        "https://akyl-cheshmesi.ru",
+        "https://www.akyl-cheshmesi.ru",
+        "https://akylcheshmesi.ru",
+        "https://www.akylcheshmesi.ru",
+    ],
 )
 
 CSRF_TRUSTED_ORIGINS = env.list(
     "DJANGO_CSRF_TRUSTED_ORIGINS",
-    default=["http://127.0.0.1:3000", "http://localhost:3000","http://localhost:8081"],
+    default=[
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+        "http://localhost:8081",
+        "https://akyl-cheshmesi.ru",
+        "https://www.akyl-cheshmesi.ru",
+        "https://akylcheshmesi.ru",
+        "https://www.akylcheshmesi.ru",
+    ],
 )
 
 CELERY_BROKER_URL = env("REDIS_BROKER_URL", default="redis://127.0.0.1:6379/1")
@@ -326,8 +359,13 @@ if USE_S3:
     AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
     AWS_S3_CUSTOM_DOMAIN = env("AWS_S3_CUSTOM_DOMAIN", default="")
-    AWS_QUERYSTRING_AUTH = env.bool("AWS_QUERYSTRING_AUTH", default=False)
-    AWS_DEFAULT_ACL = None
+    AWS_S3_PUBLIC_READ = env.bool("AWS_S3_PUBLIC_READ", default=False)
+    AWS_QUERYSTRING_AUTH = env.bool(
+        "AWS_QUERYSTRING_AUTH",
+        default=not AWS_S3_PUBLIC_READ,
+    )
+    AWS_S3_PRESIGNED_GET_EXPIRES = env.int("AWS_S3_PRESIGNED_GET_EXPIRES", default=3600)
+    AWS_DEFAULT_ACL = "public-read" if AWS_S3_PUBLIC_READ else None
     AWS_S3_FILE_OVERWRITE = False
 
     aws_s3_verify_raw = env("AWS_S3_VERIFY", default="").strip()
