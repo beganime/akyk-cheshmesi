@@ -68,6 +68,7 @@ class ContactVCardAPIView(generics.GenericAPIView):
                 f"FN:{full_name}",
                 f"N:{user.last_name or ''};{user.first_name or ''};;;",
                 f"EMAIL:{user.email}",
+                f"TEL:{user.phone_number}",
                 "END:VCARD",
             ]
         )

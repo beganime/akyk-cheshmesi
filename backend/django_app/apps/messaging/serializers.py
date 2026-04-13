@@ -197,6 +197,11 @@ class MessageCreateSerializer(serializers.Serializer):
             if media.media_kind != UploadedMedia.MediaKind.VIDEO:
                 raise serializers.ValidationError({"attachment_uuids": "Attachment must be video"})
             duration = int((media.meta or {}).get("duration_seconds") or 0)
+<<<<<<< HEAD
+=======
+            if duration <= 0:
+                raise serializers.ValidationError({"attachment_uuids": "Video duration_seconds is required"})
+>>>>>>> 6061cf38c58ff8ed34b0d580903d4c57d3ced6f8
             if duration > VIDEO_MAX_DURATION_SECONDS:
                 raise serializers.ValidationError(
                     {"attachment_uuids": f"Video duration must be <= {VIDEO_MAX_DURATION_SECONDS}s"}
@@ -209,6 +214,11 @@ class MessageCreateSerializer(serializers.Serializer):
             if media.media_kind != UploadedMedia.MediaKind.AUDIO:
                 raise serializers.ValidationError({"attachment_uuids": "Attachment must be audio"})
             duration = int((media.meta or {}).get("duration_seconds") or 0)
+<<<<<<< HEAD
+=======
+            if duration <= 0:
+                raise serializers.ValidationError({"attachment_uuids": "Audio duration_seconds is required"})
+>>>>>>> 6061cf38c58ff8ed34b0d580903d4c57d3ced6f8
             if duration > AUDIO_MAX_DURATION_SECONDS:
                 raise serializers.ValidationError(
                     {"attachment_uuids": f"Audio duration must be <= {AUDIO_MAX_DURATION_SECONDS}s"}

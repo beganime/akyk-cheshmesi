@@ -45,6 +45,7 @@ class UserAdmin(BaseUserAdmin, ModelAdmin):
                     "first_name",
                     "last_name",
                     "date_of_birth",
+                    "phone_number",
                     "avatar",
                     "bio",
                     "show_online_status",
