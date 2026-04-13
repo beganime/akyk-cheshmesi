@@ -12,6 +12,8 @@ env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     USE_S3=(bool, False),
     EMAIL_USE_SSL=(bool, True),
+    EMAIL_USE_TLS=(bool, False),
+    EMAIL_TIMEOUT=(int, 10),
     AWS_QUERYSTRING_AUTH=(bool, True),
     AWS_S3_PUBLIC_READ=(bool, False),
     AWS_S3_PRESIGNED_GET_EXPIRES=(int, 3600),
@@ -23,7 +25,7 @@ env = environ.Env(
     MEDIA_MAX_UPLOAD_SIZE_BYTES=(int, 26214400),
     SECURE_COOKIES=(bool, False),
     ENABLE_SECURITY_HEADERS=(bool, True),
-    AUTH_EMAILS_ASYNC=(bool, False),
+    AUTH_EMAILS_ASYNC=(bool, True),
 )
 
 MEDIA_MAX_UPLOAD_SIZE_BYTES = env.int("MEDIA_MAX_UPLOAD_SIZE_BYTES", default=26214400)
@@ -125,7 +127,7 @@ MIDDLEWARE = [
 ROOT_URLCONF = "config.urls"
 
 TASKS_EAGER = env.bool("TASKS_EAGER", default=False)
-AUTH_EMAILS_ASYNC = env.bool("AUTH_EMAILS_ASYNC", default=False)
+AUTH_EMAILS_ASYNC = env.bool("AUTH_EMAILS_ASYNC", default=True)
 
 TEMPLATES = [
     {
@@ -323,6 +325,8 @@ EMAIL_PORT = env.int("EMAIL_PORT", default=465)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=True)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
 
 SECURE_COOKIES = env.bool("SECURE_COOKIES", default=False)
 ENABLE_SECURITY_HEADERS = env.bool("ENABLE_SECURITY_HEADERS", default=True)

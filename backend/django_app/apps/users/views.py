@@ -32,28 +32,38 @@ OTP_TTL_MINUTES = 10
 logger = logging.getLogger(__name__)
 
 
+class EmailDispatchUnavailable(Exception):
+    """Raised when the email task cannot be enqueued."""
+
+
 def _dispatch_task(task_func, *args):
     """
-    Для email-писем по регистрации/сбросу пароля по умолчанию шлём синхронно,
-    потому что при живом брокере и мёртвом celery worker `.delay()` отработает
-    без ошибки, но письмо так и не уйдёт.
-    Чтобы вернуть асинхронную отправку, выстави AUTH_EMAILS_ASYNC=true.
+    В проде письма по регистрации/сбросу пароля не должны отправляться
+    синхронно внутри HTTP-запроса, иначе SMTP может повесить gunicorn worker
+    и дать 500/502 на фронте.
+
+    Логика:
+    - TASKS_EAGER=true  -> выполняем сразу (для локальной отладки/тестов)
+    - AUTH_EMAILS_ASYNC=true -> только enqueue в celery
+    - AUTH_EMAILS_ASYNC=false -> синхронно, если ты сам этого хочешь
     """
-    run_async = bool(getattr(settings, "AUTH_EMAILS_ASYNC", False)) and not bool(
-        getattr(settings, "TASKS_EAGER", False)
-    )
+    tasks_eager = bool(getattr(settings, "TASKS_EAGER", False))
+    run_async = bool(getattr(settings, "AUTH_EMAILS_ASYNC", True)) and not tasks_eager
 
     if not run_async:
         return task_func(*args)
 
     try:
-        return task_func.delay(*args)
-    except Exception:
+        return task_func.apply_async(
+            args=args,
+            queue=getattr(settings, "CELERY_TASK_DEFAULT_QUEUE", "default"),
+        )
+    except Exception as exc:
         logger.exception(
-            "Failed to enqueue task %s. Falling back to sync execution.",
+            "Failed to enqueue task %s",
             getattr(task_func, "name", str(task_func)),
         )
-        return task_func(*args)
+        raise EmailDispatchUnavailable("Failed to enqueue email task") from exc
 
 
 def _issue_tokens_for_user(user: User) -> dict:
@@ -92,54 +102,66 @@ class RegisterAPIView(APIView):
 
         email = serializer.validated_data["email"].strip().lower()
 
-        with transaction.atomic():
-            existing_user = User.objects.filter(email__iexact=email).first()
+        try:
+            with transaction.atomic():
+                existing_user = User.objects.filter(email__iexact=email).first()
 
-            if existing_user and existing_user.registration_completed:
-                return Response(
-                    {"detail": "A user with this email already exists"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                if existing_user and existing_user.registration_completed:
+                    return Response(
+                        {"detail": "A user with this email already exists"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
-            if existing_user:
-                user = existing_user
-                user.is_active = False
-                user.is_email_verified = False
-                user.registration_completed = False
-                user.save(
-                    update_fields=[
-                        "is_active",
-                        "is_email_verified",
-                        "registration_completed",
-                        "updated_at",
-                    ]
-                )
-            else:
-                user = User.objects.create(
+                if existing_user:
+                    user = existing_user
+                    user.is_active = False
+                    user.is_email_verified = False
+                    user.registration_completed = False
+                    user.save(
+                        update_fields=[
+                            "is_active",
+                            "is_email_verified",
+                            "registration_completed",
+                            "updated_at",
+                        ]
+                    )
+                else:
+                    user = User.objects.create(
+                        email=email,
+                        username=None,
+                        is_active=False,
+                        is_email_verified=False,
+                        registration_completed=False,
+                    )
+
+                OneTimeCode.objects.filter(
+                    email__iexact=email,
+                    purpose=OneTimeCode.Purpose.EMAIL_VERIFICATION,
+                    used_at__isnull=True,
+                ).update(expires_at=timezone.now())
+
+                code = generate_otp_code()
+
+                OneTimeCode.objects.create(
+                    user=user,
                     email=email,
-                    username=None,
-                    is_active=False,
-                    is_email_verified=False,
-                    registration_completed=False,
+                    purpose=OneTimeCode.Purpose.EMAIL_VERIFICATION,
+                    code_hash=hash_otp_code(code),
+                    expires_at=timezone.now() + timedelta(minutes=OTP_TTL_MINUTES),
                 )
 
-            OneTimeCode.objects.filter(
-                email__iexact=email,
-                purpose=OneTimeCode.Purpose.EMAIL_VERIFICATION,
-                used_at__isnull=True,
-            ).update(expires_at=timezone.now())
+                _dispatch_task(send_verification_email, email, code)
 
-            code = generate_otp_code()
-
-            OneTimeCode.objects.create(
-                user=user,
-                email=email,
-                purpose=OneTimeCode.Purpose.EMAIL_VERIFICATION,
-                code_hash=hash_otp_code(code),
-                expires_at=timezone.now() + timedelta(minutes=OTP_TTL_MINUTES),
+        except EmailDispatchUnavailable:
+            return Response(
+                {
+                    "detail": (
+                        "Verification email service is temporarily unavailable. "
+                        "Please try again in 1-2 minutes."
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-
-        _dispatch_task(send_verification_email, email, code)
 
         return Response(
             {
@@ -336,23 +358,36 @@ class PasswordResetAPIView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        OneTimeCode.objects.filter(
-            email__iexact=email,
-            purpose=OneTimeCode.Purpose.PASSWORD_RESET,
-            used_at__isnull=True,
-        ).update(expires_at=timezone.now())
+        try:
+            with transaction.atomic():
+                OneTimeCode.objects.filter(
+                    email__iexact=email,
+                    purpose=OneTimeCode.Purpose.PASSWORD_RESET,
+                    used_at__isnull=True,
+                ).update(expires_at=timezone.now())
 
-        code = generate_otp_code()
+                code = generate_otp_code()
 
-        OneTimeCode.objects.create(
-            user=user,
-            email=email,
-            purpose=OneTimeCode.Purpose.PASSWORD_RESET,
-            code_hash=hash_otp_code(code),
-            expires_at=timezone.now() + timedelta(minutes=OTP_TTL_MINUTES),
-        )
+                OneTimeCode.objects.create(
+                    user=user,
+                    email=email,
+                    purpose=OneTimeCode.Purpose.PASSWORD_RESET,
+                    code_hash=hash_otp_code(code),
+                    expires_at=timezone.now() + timedelta(minutes=OTP_TTL_MINUTES),
+                )
 
-        _dispatch_task(send_password_reset_email, email, code)
+                _dispatch_task(send_password_reset_email, email, code)
+
+        except EmailDispatchUnavailable:
+            return Response(
+                {
+                    "detail": (
+                        "Password reset email service is temporarily unavailable. "
+                        "Please try again in 1-2 minutes."
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         return Response(
             {"detail": "If the account exists, reset instructions were sent"},
