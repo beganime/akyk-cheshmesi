@@ -319,7 +319,7 @@ EMAIL_BACKEND = env(
     if DEBUG
     else "django.core.mail.backends.smtp.EmailBackend",
 )
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@akyl.local")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="priem@stud-life.com")
 EMAIL_HOST = env("EMAIL_HOST", default="smtp.yandex.ru")
 EMAIL_PORT = env.int("EMAIL_PORT", default=465)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
