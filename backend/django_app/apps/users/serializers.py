@@ -2,6 +2,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from .models import User
+from .public_serializers import build_private_file_url
 from .utils import is_valid_username
 
 
@@ -94,6 +95,11 @@ class UserMeSerializer(serializers.ModelSerializer):
             "registration_completed",
         )
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["avatar"] = build_private_file_url(getattr(instance, "avatar", None))
+        return data
+
 
 class UserAuthResponseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -112,6 +118,11 @@ class UserAuthResponseSerializer(serializers.ModelSerializer):
             "is_email_verified",
             "registration_completed",
         )
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["avatar"] = build_private_file_url(getattr(instance, "avatar", None))
+        return data
 
 
 class UserSearchSerializer(serializers.ModelSerializer):
@@ -139,3 +150,8 @@ class UserSearchSerializer(serializers.ModelSerializer):
 
     def get_badge(self, obj):
         return "staff" if getattr(obj, "is_staff", False) else ""
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["avatar"] = build_private_file_url(getattr(instance, "avatar", None))
+        return data
