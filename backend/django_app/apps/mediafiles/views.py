@@ -137,10 +137,13 @@ class MediaPresignAPIView(generics.GenericAPIView):
 
         s3_client = build_s3_client()
 
+        # ВАЖНО:
+        # Не подписываем ContentType в presigned PUT.
+        # Иначе mobile/web клиенты часто ловят SignatureDoesNotMatch,
+        # если реальный PUT отправляет хоть немного другой Content-Type.
         upload_params = {
             "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
             "Key": object_key,
-            "ContentType": validated.content_type,
         }
 
         upload_url = s3_client.generate_presigned_url(
@@ -155,9 +158,7 @@ class MediaPresignAPIView(generics.GenericAPIView):
                 "upload": {
                     "method": "PUT",
                     "url": upload_url,
-                    "headers": {
-                        "Content-Type": validated.content_type,
-                    },
+                    "headers": {},
                     "expires_in_seconds": 900,
                 },
             },
