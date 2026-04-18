@@ -23,12 +23,18 @@ def build_s3_client():
     )
 
 
-def make_absolute_media_url(url: str | None) -> str | None:
+def make_absolute_media_url(url: str | None, request=None) -> str | None:
     if not url:
         return None
 
     if url.startswith("http://") or url.startswith("https://"):
         return url
+
+    if request is not None:
+        try:
+            return request.build_absolute_uri(url)
+        except Exception:
+            pass
 
     base_url = getattr(settings, "PUBLIC_MEDIA_BASE_URL", "") or ""
     base_url = base_url.rstrip("/")
@@ -67,7 +73,7 @@ def get_s3_file_url(obj) -> str | None:
     )
 
 
-def get_uploaded_media_file_url(obj) -> str | None:
+def get_uploaded_media_file_url(obj, request=None) -> str | None:
     if obj.storage_provider == UploadedMedia.StorageProvider.S3 and obj.status == UploadedMedia.Status.UPLOADED:
         if not getattr(settings, "USE_S3", False):
             return None
@@ -79,11 +85,11 @@ def get_uploaded_media_file_url(obj) -> str | None:
 
     if obj.file:
         try:
-            return make_absolute_media_url(obj.file.url)
+            return make_absolute_media_url(obj.file.url, request=request)
         except Exception:
             return None
 
-    return make_absolute_media_url(obj.meta.get("file_url"))
+    return make_absolute_media_url(obj.meta.get("file_url"), request=request)
 
 
 class UploadedMediaSerializer(serializers.ModelSerializer):
@@ -108,7 +114,8 @@ class UploadedMediaSerializer(serializers.ModelSerializer):
         )
 
     def get_file_url(self, obj):
-        return get_uploaded_media_file_url(obj)
+        request = self.context.get("request")
+        return get_uploaded_media_file_url(obj, request=request)
 
 
 class MediaAttachmentBriefSerializer(serializers.ModelSerializer):
@@ -126,7 +133,8 @@ class MediaAttachmentBriefSerializer(serializers.ModelSerializer):
         )
 
     def get_file_url(self, obj):
-        return get_uploaded_media_file_url(obj)
+        request = self.context.get("request")
+        return get_uploaded_media_file_url(obj, request=request)
 
 
 class MediaPresignRequestSerializer(serializers.Serializer):

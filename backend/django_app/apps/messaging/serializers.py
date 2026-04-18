@@ -111,8 +111,12 @@ class MessageListSerializer(serializers.ModelSerializer):
             return []
 
         media_items = [attachment.media for attachment in self._get_attachments(obj)]
-        return MediaAttachmentBriefSerializer(media_items, many=True).data
-
+        return MediaAttachmentBriefSerializer(
+            media_items,
+            many=True,
+            context=self.context,
+        ).data
+        
     def to_representation(self, instance):
         data = super().to_representation(instance)
 

@@ -253,6 +253,11 @@ class ChatMessageDetailAPIView(generics.GenericAPIView):
             self.kwargs["chat_uuid"],
             self.kwargs["message_uuid"],
         )
+    
+    def get(self, request, *args, **kwargs):
+        message = self.get_message()
+        output = MessageListSerializer(message, context={"request": request})
+        return Response(output.data, status=status.HTTP_200_OK)
 
     def patch(self, request, *args, **kwargs):
         message = self.get_message()

@@ -98,7 +98,7 @@ class MediaPresignAPIView(generics.GenericAPIView):
         if not settings.USE_S3:
             return Response(
                 {
-                    "detail": "S3 is disabled. Use /api/v1/media/upload-local/.",
+                    "detail": "USE_S3 is disabled. Use /api/v1/media/upload-local/.",
                     "storage": "local",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -137,14 +137,12 @@ class MediaPresignAPIView(generics.GenericAPIView):
 
         s3_client = build_s3_client()
 
-        upload_params = {
-            "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
-            "Key": object_key,
-        }
-
         upload_url = s3_client.generate_presigned_url(
             ClientMethod="put_object",
-            Params=upload_params,
+            Params={
+                "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
+                "Key": object_key,
+            },
             ExpiresIn=900,
         )
 
@@ -187,7 +185,7 @@ class MediaCompleteAPIView(generics.GenericAPIView):
 
         if not settings.USE_S3:
             return Response(
-                {"detail": "S3 is disabled. This media cannot be completed through S3."},
+                {"detail": "USE_S3 is disabled. This media cannot be completed through S3."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -230,7 +228,7 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
         if settings.USE_S3:
             return Response(
                 {
-                    "detail": "S3 is enabled. Use /api/v1/media/presign/ instead.",
+                    "detail": "USE_S3 is enabled. Use /api/v1/media/presign/ instead.",
                     "storage": "s3",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -290,14 +288,19 @@ class MediaDownloadAPIView(generics.GenericAPIView):
 
         if media.storage_provider == UploadedMedia.StorageProvider.LOCAL and media.file:
             return Response(
-                {"download_url": UploadedMediaSerializer(media, context={"request": request}).data.get("file_url")},
+                {
+                    "download_url": UploadedMediaSerializer(
+                        media,
+                        context={"request": request},
+                    ).data.get("file_url")
+                },
                 status=status.HTTP_200_OK,
             )
 
         if media.storage_provider == UploadedMedia.StorageProvider.S3:
             if not settings.USE_S3:
                 return Response(
-                    {"detail": "S3 is disabled. Download URL is not available."},
+                    {"detail": "USE_S3 is disabled. Download URL is not available."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
