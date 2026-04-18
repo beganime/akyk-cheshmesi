@@ -23,6 +23,24 @@ def build_s3_client():
     )
 
 
+def make_absolute_media_url(url: str | None) -> str | None:
+    if not url:
+        return None
+
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+
+    base_url = getattr(settings, "PUBLIC_MEDIA_BASE_URL", "") or ""
+    base_url = base_url.rstrip("/")
+
+    if base_url:
+        if not url.startswith("/"):
+            url = f"/{url}"
+        return f"{base_url}{url}"
+
+    return url
+
+
 def get_s3_file_url(obj) -> str | None:
     if not obj.bucket_name or not obj.object_key:
         return None
@@ -49,6 +67,25 @@ def get_s3_file_url(obj) -> str | None:
     )
 
 
+def get_uploaded_media_file_url(obj) -> str | None:
+    if obj.storage_provider == UploadedMedia.StorageProvider.S3 and obj.status == UploadedMedia.Status.UPLOADED:
+        if not getattr(settings, "USE_S3", False):
+            return None
+
+        try:
+            return get_s3_file_url(obj)
+        except Exception:
+            return None
+
+    if obj.file:
+        try:
+            return make_absolute_media_url(obj.file.url)
+        except Exception:
+            return None
+
+    return make_absolute_media_url(obj.meta.get("file_url"))
+
+
 class UploadedMediaSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
 
@@ -71,19 +108,7 @@ class UploadedMediaSerializer(serializers.ModelSerializer):
         )
 
     def get_file_url(self, obj):
-        if obj.storage_provider == UploadedMedia.StorageProvider.S3 and obj.status == UploadedMedia.Status.UPLOADED:
-            try:
-                return get_s3_file_url(obj)
-            except Exception:
-                return None
-
-        if obj.file:
-            try:
-                return obj.file.url
-            except Exception:
-                return None
-
-        return obj.meta.get("file_url")
+        return get_uploaded_media_file_url(obj)
 
 
 class MediaAttachmentBriefSerializer(serializers.ModelSerializer):
@@ -101,19 +126,7 @@ class MediaAttachmentBriefSerializer(serializers.ModelSerializer):
         )
 
     def get_file_url(self, obj):
-        if obj.storage_provider == UploadedMedia.StorageProvider.S3 and obj.status == UploadedMedia.Status.UPLOADED:
-            try:
-                return get_s3_file_url(obj)
-            except Exception:
-                return None
-
-        if obj.file:
-            try:
-                return obj.file.url
-            except Exception:
-                return None
-
-        return obj.meta.get("file_url")
+        return get_uploaded_media_file_url(obj)
 
 
 class MediaPresignRequestSerializer(serializers.Serializer):
@@ -136,4 +149,9 @@ class LocalMediaUploadSerializer(serializers.Serializer):
     def validate_file(self, value):
         if value.size <= 0:
             raise serializers.ValidationError("Empty file is not allowed")
+
+        max_size = getattr(settings, "MEDIA_MAX_UPLOAD_SIZE_BYTES", 26214400)
+        if value.size > max_size:
+            raise serializers.ValidationError(f"File is too large. Max size is {max_size} bytes")
+
         return value

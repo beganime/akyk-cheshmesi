@@ -28,38 +28,6 @@ env = environ.Env(
     AUTH_EMAILS_ASYNC=(bool, True),
 )
 
-MEDIA_MAX_UPLOAD_SIZE_BYTES = env.int("MEDIA_MAX_UPLOAD_SIZE_BYTES", default=26214400)
-MEDIA_ALLOWED_CONTENT_TYPES = env.list(
-    "MEDIA_ALLOWED_CONTENT_TYPES",
-    default=[
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "image/gif",
-        "video/mp4",
-        "video/quicktime",
-        "video/webm",
-        "audio/mpeg",
-        "audio/wav",
-        "audio/x-wav",
-        "audio/mp4",
-        "audio/webm",
-        "audio/ogg",
-        "application/pdf",
-        "text/plain",
-        "text/csv",
-        "application/zip",
-        "application/x-zip-compressed",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-powerpoint",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "application/octet-stream",
-    ],
-)
-
 env_file = PROJECT_ROOT / ".env"
 if env_file.exists():
     environ.Env.read_env(env_file)
@@ -184,8 +152,41 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = PROJECT_ROOT / "var" / "static"
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = PROJECT_ROOT / "var" / "media"
+MEDIA_URL = env("MEDIA_URL", default="/media/")
+MEDIA_ROOT = Path(env("MEDIA_ROOT", default=str(PROJECT_ROOT / "var" / "media")))
+PUBLIC_MEDIA_BASE_URL = env("PUBLIC_MEDIA_BASE_URL", default="").rstrip("/")
+
+MEDIA_MAX_UPLOAD_SIZE_BYTES = env.int("MEDIA_MAX_UPLOAD_SIZE_BYTES", default=26214400)
+MEDIA_ALLOWED_CONTENT_TYPES = env.list(
+    "MEDIA_ALLOWED_CONTENT_TYPES",
+    default=[
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+        "video/mp4",
+        "video/quicktime",
+        "video/webm",
+        "audio/mpeg",
+        "audio/wav",
+        "audio/x-wav",
+        "audio/mp4",
+        "audio/webm",
+        "audio/ogg",
+        "application/pdf",
+        "text/plain",
+        "text/csv",
+        "application/zip",
+        "application/x-zip-compressed",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/octet-stream",
+    ],
+)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
@@ -402,6 +403,10 @@ else:
     STORAGES = {
         "default": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",
+            "OPTIONS": {
+                "location": MEDIA_ROOT,
+                "base_url": MEDIA_URL,
+            },
         },
         "staticfiles": {
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",

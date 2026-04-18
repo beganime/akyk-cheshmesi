@@ -1,10 +1,10 @@
 import os
 import uuid
 
-import boto3
 from botocore.client import Config as BotoConfig
 from botocore.exceptions import ClientError
 from django.conf import settings
+from django.core.files.storage import default_storage
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -25,13 +25,17 @@ AUDIO_MAX_DURATION_SECONDS = 300
 def validate_media_duration(media_kind: str, duration_seconds: int | None):
     if duration_seconds is None:
         return
+
     if media_kind == UploadedMedia.MediaKind.VIDEO and duration_seconds > VIDEO_MAX_DURATION_SECONDS:
         raise ValueError(f"Video duration exceeds {VIDEO_MAX_DURATION_SECONDS} seconds")
+
     if media_kind == UploadedMedia.MediaKind.AUDIO and duration_seconds > AUDIO_MAX_DURATION_SECONDS:
         raise ValueError(f"Audio duration exceeds {AUDIO_MAX_DURATION_SECONDS} seconds")
 
 
 def build_s3_client():
+    import boto3
+
     session = boto3.session.Session()
     return session.client(
         "s3",
@@ -49,16 +53,11 @@ def build_s3_client():
 
 def build_media_object_key(user_uuid: str, original_name: str) -> str:
     _, ext = os.path.splitext(original_name)
-    ext = ext[:12]
+    ext = ext[:12].lower()
     return f"uploads/{user_uuid}/{uuid.uuid4().hex}{ext}"
 
 
 def build_s3_file_url(bucket_name: str, object_key: str) -> str:
-    """
-    Возвращает URL для доступа к объекту:
-    - если файл публичный: обычный URL
-    - если файл приватный: временный presigned GET URL
-    """
     is_public_read = getattr(settings, "AWS_S3_PUBLIC_READ", False)
 
     if is_public_read:
@@ -99,7 +98,8 @@ class MediaPresignAPIView(generics.GenericAPIView):
         if not settings.USE_S3:
             return Response(
                 {
-                    "detail": "USE_S3 is disabled. Use /api/v1/media/upload-local/ in local development."
+                    "detail": "S3 is disabled. Use /api/v1/media/upload-local/.",
+                    "storage": "local",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -137,10 +137,6 @@ class MediaPresignAPIView(generics.GenericAPIView):
 
         s3_client = build_s3_client()
 
-        # ВАЖНО:
-        # Не подписываем ContentType в presigned PUT.
-        # Иначе mobile/web клиенты часто ловят SignatureDoesNotMatch,
-        # если реальный PUT отправляет хоть немного другой Content-Type.
         upload_params = {
             "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
             "Key": object_key,
@@ -154,7 +150,7 @@ class MediaPresignAPIView(generics.GenericAPIView):
 
         return Response(
             {
-                "media": UploadedMediaSerializer(media).data,
+                "media": UploadedMediaSerializer(media, context={"request": request}).data,
                 "upload": {
                     "method": "PUT",
                     "url": upload_url,
@@ -189,6 +185,12 @@ class MediaCompleteAPIView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if not settings.USE_S3:
+            return Response(
+                {"detail": "S3 is disabled. This media cannot be completed through S3."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         s3_client = build_s3_client()
 
         try:
@@ -212,7 +214,10 @@ class MediaCompleteAPIView(generics.GenericAPIView):
         }
         media.save(update_fields=["status", "meta", "updated_at"])
 
-        return Response(UploadedMediaSerializer(media).data, status=status.HTTP_200_OK)
+        return Response(
+            UploadedMediaSerializer(media, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class LocalMediaUploadAPIView(generics.GenericAPIView):
@@ -224,7 +229,10 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
     def post(self, request):
         if settings.USE_S3:
             return Response(
-                {"detail": "USE_S3 is enabled. Use /api/v1/media/presign/ instead."},
+                {
+                    "detail": "S3 is enabled. Use /api/v1/media/presign/ instead.",
+                    "storage": "s3",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -245,6 +253,9 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
+        object_key = build_media_object_key(str(request.user.uuid), file_obj.name)
+        saved_name = default_storage.save(object_key, file_obj)
+
         media = UploadedMedia.objects.create(
             owner=request.user,
             original_name=file_obj.name,
@@ -254,26 +265,42 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
             storage_provider=UploadedMedia.StorageProvider.LOCAL,
             status=UploadedMedia.Status.UPLOADED,
             is_public=is_public,
-            object_key=build_media_object_key(str(request.user.uuid), file_obj.name),
-            file=file_obj,
+            object_key=saved_name,
+            file=saved_name,
             meta={"duration_seconds": duration_seconds} if duration_seconds else {},
         )
 
-        return Response(UploadedMediaSerializer(media).data, status=status.HTTP_201_CREATED)
+        return Response(
+            UploadedMediaSerializer(media, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class MediaDownloadAPIView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
-        media = UploadedMedia.objects.filter(uuid=kwargs["media_uuid"], status=UploadedMedia.Status.UPLOADED).first()
+        media = UploadedMedia.objects.filter(
+            uuid=kwargs["media_uuid"],
+            status=UploadedMedia.Status.UPLOADED,
+        ).first()
+
         if not media:
             return Response({"detail": "Media not found"}, status=status.HTTP_404_NOT_FOUND)
 
         if media.storage_provider == UploadedMedia.StorageProvider.LOCAL and media.file:
-            return Response({"download_url": media.file.url}, status=status.HTTP_200_OK)
+            return Response(
+                {"download_url": UploadedMediaSerializer(media, context={"request": request}).data.get("file_url")},
+                status=status.HTTP_200_OK,
+            )
 
         if media.storage_provider == UploadedMedia.StorageProvider.S3:
+            if not settings.USE_S3:
+                return Response(
+                    {"detail": "S3 is disabled. Download URL is not available."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             try:
                 return Response(
                     {"download_url": build_s3_file_url(media.bucket_name, media.object_key)},

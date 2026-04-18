@@ -2,13 +2,13 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-import boto3
-from botocore.client import Config as BotoConfig
-
 User = get_user_model()
 
 
 def build_s3_client():
+    import boto3
+    from botocore.client import Config as BotoConfig
+
     session = boto3.session.Session()
     return session.client(
         "s3",
@@ -22,6 +22,24 @@ def build_s3_client():
             s3={"addressing_style": "path"},
         ),
     )
+
+
+def make_absolute_media_url(url: str | None) -> str | None:
+    if not url:
+        return None
+
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+
+    base_url = getattr(settings, "PUBLIC_MEDIA_BASE_URL", "") or ""
+    base_url = base_url.rstrip("/")
+
+    if base_url:
+        if not url.startswith("/"):
+            url = f"/{url}"
+        return f"{base_url}{url}"
+
+    return url
 
 
 def build_private_file_url(file_field) -> str | None:
@@ -50,10 +68,10 @@ def build_private_file_url(file_field) -> str | None:
             pass
 
     try:
-        return file_field.url
+        return make_absolute_media_url(file_field.url)
     except Exception:
         try:
-            return file_field.storage.url(name)
+            return make_absolute_media_url(file_field.storage.url(name))
         except Exception:
             return None
 
