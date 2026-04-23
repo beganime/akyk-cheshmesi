@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     "apps.users.apps.UsersConfig",
     "apps.chats.apps.ChatsConfig",
     "apps.messaging.apps.MessagingConfig",
+    "apps.calls.apps.CallsConfig",
     "apps.mediafiles.apps.MediaFilesConfig",
     "apps.stickers.apps.StickersConfig",
     "apps.complaints.apps.ComplaintsConfig",
@@ -220,6 +221,9 @@ REST_FRAMEWORK = {
         "media_presign": "60/hour",
         "media_complete": "120/hour",
         "media_upload": "30/hour",
+        "call_create": "30/hour",
+        "call_action": "240/hour",
+        "call_history": "240/hour",
     },
 }
 
@@ -486,6 +490,11 @@ UNFOLD = {
                         "title": _("Bot commands"),
                         "icon": "smart_toy",
                         "link": reverse_lazy("admin:bots_botcommand_changelist"),
+                    },
+                    {
+                        "title": _("Calls"),
+                        "icon": "call",
+                        "link": reverse_lazy("admin:calls_callsession_changelist"),
                     },
                 ],
             },

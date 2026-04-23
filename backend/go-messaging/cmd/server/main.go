@@ -6,13 +6,14 @@ import (
 	"log"
 	"net/http"
 	"time"
-	
-	"akyl-chesmesi/go-messaging/internal/ratelimit"
+
 	"akyl-chesmesi/go-messaging/internal/auth"
+	"akyl-chesmesi/go-messaging/internal/calls"
 	"akyl-chesmesi/go-messaging/internal/chataccess"
 	"akyl-chesmesi/go-messaging/internal/config"
 	"akyl-chesmesi/go-messaging/internal/eventstream"
 	"akyl-chesmesi/go-messaging/internal/presence"
+	"akyl-chesmesi/go-messaging/internal/ratelimit"
 	"akyl-chesmesi/go-messaging/internal/realtime"
 	"akyl-chesmesi/go-messaging/internal/redisx"
 	"akyl-chesmesi/go-messaging/internal/ws"
@@ -62,13 +63,23 @@ func main() {
 		cfg.RateLimitTypingPer10s,
 		cfg.RateLimitStatusesPer10s,
 	)
-	
+
+	callRoomManager := calls.NewRoomManager(
+		calls.BuildICEServers(
+			cfg.CallSTUNURLs,
+			cfg.CallTURNURLs,
+			cfg.CallTURNUsername,
+			cfg.CallTURNCredential,
+		),
+	)
+
 	realtimeSubscriber := realtime.New(streamRedis, cfg.RealtimeEventsChannel, hub)
 	go realtimeSubscriber.Start(context.Background())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthHandler)
 	mux.HandleFunc("/ws", serveWS(cfg, hub))
+	mux.HandleFunc("/ws/calls", serveCallWS(cfg, accessService, callRoomManager))
 
 	server := &http.Server{
 		Addr:              cfg.Addr(),
@@ -130,6 +141,47 @@ func serveWS(cfg config.Config, hub *ws.Hub) http.HandlerFunc {
 
 		go client.WritePump()
 		client.ReadPump(cfg.WebSocketReadLimit)
+	}
+}
+
+func serveCallWS(
+	cfg config.Config,
+	accessService *chataccess.Service,
+	callRoomManager *calls.RoomManager,
+) http.HandlerFunc {
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		tokenString := auth.ExtractTokenFromRequest(r)
+		claims, err := auth.ValidateAccessToken(tokenString, cfg.JWTSecret)
+		if err != nil {
+			log.Printf("call websocket auth failed: %v", err)
+			http.Error(w, "unauthorized websocket: "+err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("call websocket upgrade failed: %v", err)
+			return
+		}
+
+		handler := calls.NewSignalingHandler(
+			conn,
+			callRoomManager,
+			accessService,
+			claims.UserUUID,
+			claims.Email,
+			claims.Username,
+		)
+
+		go handler.Handle()
 	}
 }
 

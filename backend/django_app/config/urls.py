@@ -11,6 +11,7 @@ urlpatterns = [
     path("api/v1/", include("apps.users.urls")),
     path("api/v1/", include("apps.users.push_urls")),
     path("api/v1/", include("apps.chats.urls")),
+    path("api/v1/", include("apps.calls.urls")),
     path("api/v1/", include("apps.mediafiles.urls")),
     path("api/v1/", include("apps.stickers.urls")),
     path("api/v1/", include("apps.complaints.urls")),
