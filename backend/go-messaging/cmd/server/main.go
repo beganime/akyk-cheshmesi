@@ -71,15 +71,22 @@ func main() {
 			cfg.CallTURNUsername,
 			cfg.CallTURNCredential,
 		),
+		cfg.CallMaxPeersPerRoom,
+		time.Duration(cfg.CallEmptyRoomTTLSeconds)*time.Second,
 	)
 
 	realtimeSubscriber := realtime.New(streamRedis, cfg.RealtimeEventsChannel, hub)
 	go realtimeSubscriber.Start(context.Background())
+	go callRoomManager.StartCleanupLoop(
+		context.Background(),
+		time.Duration(cfg.CallCleanupIntervalSeconds)*time.Second,
+	)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthHandler)
 	mux.HandleFunc("/ws", serveWS(cfg, hub))
 	mux.HandleFunc("/ws/calls", serveCallWS(cfg, accessService, callRoomManager))
+	mux.HandleFunc("/metrics/calls", serveCallMetrics(callRoomManager))
 
 	server := &http.Server{
 		Addr:              cfg.Addr(),
@@ -150,8 +157,8 @@ func serveCallWS(
 	callRoomManager *calls.RoomManager,
 ) http.HandlerFunc {
 	upgrader := websocket.Upgrader{
-		ReadBufferSize:  1024,
-		WriteBufferSize: 1024,
+		ReadBufferSize:  2048,
+		WriteBufferSize: 2048,
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
@@ -181,7 +188,15 @@ func serveCallWS(
 			claims.Username,
 		)
 
-		go handler.Handle()
+		go handler.Handle(cfg.CallWSReadLimit)
+	}
+}
+
+func serveCallMetrics(callRoomManager *calls.RoomManager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(callRoomManager.Stats())
 	}
 }
 

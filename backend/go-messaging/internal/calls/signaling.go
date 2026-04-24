@@ -5,14 +5,21 @@ import (
 	"encoding/json"
 	"log"
 	"strings"
+	"time"
 
 	"akyl-chesmesi/go-messaging/internal/chataccess"
 
 	"github.com/gorilla/websocket"
 )
 
+const (
+	callPongWait   = 60 * time.Second
+	callPingPeriod = 20 * time.Second
+)
+
 type SignalingHandler struct {
 	conn          *websocket.Conn
+	ws            *SafeWS
 	roomManager   *RoomManager
 	accessService *chataccess.Service
 
@@ -34,6 +41,7 @@ func NewSignalingHandler(
 ) *SignalingHandler {
 	return &SignalingHandler{
 		conn:          conn,
+		ws:            NewSafeWS(conn),
 		roomManager:   roomManager,
 		accessService: accessService,
 		userUUID:      userUUID,
@@ -42,7 +50,30 @@ func NewSignalingHandler(
 	}
 }
 
-func (h *SignalingHandler) Handle() {
+func (h *SignalingHandler) Handle(readLimit int64) {
+	if readLimit <= 0 {
+		readLimit = 65536
+	}
+
+	h.conn.SetReadLimit(readLimit)
+	_ = h.conn.SetReadDeadline(time.Now().Add(callPongWait))
+	h.conn.SetPongHandler(func(string) error {
+		return h.conn.SetReadDeadline(time.Now().Add(callPongWait))
+	})
+
+	pingTicker := time.NewTicker(callPingPeriod)
+	defer pingTicker.Stop()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range pingTicker.C {
+			if err := h.ws.WritePing(); err != nil {
+				return
+			}
+		}
+	}()
+
 	defer func() {
 		if h.peer != nil {
 			h.peer.Close()
@@ -50,7 +81,7 @@ func (h *SignalingHandler) Handle() {
 		if h.room != nil {
 			h.roomManager.Cleanup(h.room.ID)
 		}
-		_ = h.conn.Close()
+		_ = h.ws.Close()
 		log.Printf("[calls] signaling connection closed for user=%s", h.userUUID)
 	}()
 
@@ -66,6 +97,8 @@ func (h *SignalingHandler) Handle() {
 			}
 			return
 		}
+
+		_ = h.conn.SetReadDeadline(time.Now().Add(callPongWait))
 
 		var sig Signal
 		if err := json.Unmarshal(rawMsg, &sig); err != nil {
@@ -109,7 +142,7 @@ func (h *SignalingHandler) Handle() {
 
 			room := h.roomManager.GetOrCreate(sig.ChatUUID, sig.RoomKey)
 			peer, err := NewPeer(
-				h.conn,
+				h.ws,
 				room,
 				h.userUUID,
 				h.email,
@@ -119,6 +152,12 @@ func (h *SignalingHandler) Handle() {
 			if err != nil {
 				log.Printf("[calls] peer create failed user=%s: %v", h.userUUID, err)
 				h.sendError("failed to create call peer")
+				continue
+			}
+
+			if err := room.AddPeer(peer); err != nil {
+				log.Printf("[calls] room add peer failed user=%s: %v", h.userUUID, err)
+				h.sendError(err.Error())
 				continue
 			}
 
@@ -135,11 +174,9 @@ func (h *SignalingHandler) Handle() {
 					"user_uuid":         h.userUUID,
 					"email":             h.email,
 					"username":          h.username,
-					"participant_count": room.Count() + 1,
+					"participant_count": room.Count(),
 				},
 			})
-
-			room.AddPeer(peer)
 
 		case "call_offer":
 			if h.peer == nil {
@@ -193,12 +230,7 @@ func (h *SignalingHandler) Handle() {
 }
 
 func (h *SignalingHandler) send(sig Signal) {
-	payload, err := json.Marshal(sig)
-	if err != nil {
-		log.Printf("[calls] marshal send failed: %v", err)
-		return
-	}
-	if err := h.conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+	if err := h.ws.WriteSignal(sig); err != nil {
 		log.Printf("[calls] write send failed: %v", err)
 	}
 }

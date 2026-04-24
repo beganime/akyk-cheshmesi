@@ -27,10 +27,14 @@ type Config struct {
 	RateLimitTypingPer10s   int
 	RateLimitStatusesPer10s int
 
-	CallSTUNURLs       []string
-	CallTURNURLs       []string
-	CallTURNUsername   string
-	CallTURNCredential string
+	CallSTUNURLs               []string
+	CallTURNURLs               []string
+	CallTURNUsername           string
+	CallTURNCredential         string
+	CallMaxPeersPerRoom        int
+	CallCleanupIntervalSeconds int
+	CallEmptyRoomTTLSeconds    int
+	CallWSReadLimit            int64
 }
 
 func Load() Config {
@@ -52,14 +56,19 @@ func Load() Config {
 		RateLimitMessagesPer10s:  getEnvInt("GO_RATE_LIMIT_MESSAGES_PER_10S", 12),
 		RateLimitTypingPer10s:    getEnvInt("GO_RATE_LIMIT_TYPING_PER_10S", 30),
 		RateLimitStatusesPer10s:  getEnvInt("GO_RATE_LIMIT_STATUSES_PER_10S", 40),
-		CallSTUNURLs:             getEnvCSV("GO_CALL_STUN_URLS", []string{"stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"}),
-		CallTURNURLs:             getEnvCSV("GO_CALL_TURN_URLS", nil),
-		CallTURNUsername:         getEnv("GO_CALL_TURN_USERNAME", ""),
-		CallTURNCredential:       getEnv("GO_CALL_TURN_CREDENTIAL", ""),
+
+		CallSTUNURLs:               getEnvCSV("GO_CALL_STUN_URLS", []string{"stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"}),
+		CallTURNURLs:               getEnvCSV("GO_CALL_TURN_URLS", nil),
+		CallTURNUsername:           getEnv("GO_CALL_TURN_USERNAME", ""),
+		CallTURNCredential:         getEnv("GO_CALL_TURN_CREDENTIAL", ""),
+		CallMaxPeersPerRoom:        getEnvInt("GO_CALL_MAX_PEERS_PER_ROOM", 8),
+		CallCleanupIntervalSeconds: getEnvInt("GO_CALL_CLEANUP_INTERVAL_SECONDS", 15),
+		CallEmptyRoomTTLSeconds:    getEnvInt("GO_CALL_EMPTY_ROOM_TTL_SECONDS", 30),
+		CallWSReadLimit:            getEnvInt64("GO_CALL_WS_READ_LIMIT", 65536),
 	}
 
 	log.Printf(
-		"config loaded | env=%s addr=%s:%s cache=%s stream=%s jwt_set=%t stun=%d turn=%d",
+		"config loaded | env=%s addr=%s:%s cache=%s stream=%s jwt_set=%t stun=%d turn=%d max_room_peers=%d",
 		cfg.AppEnv,
 		cfg.HTTPHost,
 		cfg.HTTPPort,
@@ -68,6 +77,7 @@ func Load() Config {
 		cfg.JWTSecret != "",
 		len(cfg.CallSTUNURLs),
 		len(cfg.CallTURNURLs),
+		cfg.CallMaxPeersPerRoom,
 	)
 
 	return cfg

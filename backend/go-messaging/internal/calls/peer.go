@@ -6,9 +6,14 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 )
+
+type RemoteSenderBinding struct {
+	Sender          *webrtc.RTPSender
+	PublisherPeerID string
+	TrackID         string
+}
 
 type Peer struct {
 	ID       string
@@ -16,21 +21,21 @@ type Peer struct {
 	Email    string
 	Username string
 
-	conn *websocket.Conn
+	ws   *SafeWS
 	pc   *webrtc.PeerConnection
 	room *Room
 
 	writeMu sync.Mutex
 	stateMu sync.RWMutex
 
-	localTracks   []*webrtc.TrackLocalStaticRTP
-	remoteSenders []*webrtc.RTPSender
+	localTracks   map[string]*webrtc.TrackLocalStaticRTP
+	remoteSenders map[string]*RemoteSenderBinding
 
 	done chan struct{}
 }
 
 func NewPeer(
-	conn *websocket.Conn,
+	ws *SafeWS,
 	room *Room,
 	userUUID string,
 	email string,
@@ -47,14 +52,16 @@ func NewPeer(
 	}
 
 	p := &Peer{
-		ID:       id,
-		UserUUID: userUUID,
-		Email:    email,
-		Username: username,
-		conn:     conn,
-		pc:       pc,
-		room:     room,
-		done:     make(chan struct{}),
+		ID:            id,
+		UserUUID:      userUUID,
+		Email:         email,
+		Username:      username,
+		ws:            ws,
+		pc:            pc,
+		room:          room,
+		localTracks:   make(map[string]*webrtc.TrackLocalStaticRTP),
+		remoteSenders: make(map[string]*RemoteSenderBinding),
+		done:          make(chan struct{}),
 	}
 
 	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
@@ -86,16 +93,23 @@ func NewPeer(
 	})
 
 	pc.OnTrack(func(remoteTrack *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		baseTrackID := remoteTrack.ID()
+		if baseTrackID == "" {
+			baseTrackID = uuid.New().String()
+		}
+		trackID := p.ID + ":" + baseTrackID + ":" + remoteTrack.Kind().String()
+
 		log.Printf(
-			"[calls][peer=%s] got track kind=%s codec=%s",
+			"[calls][peer=%s] got track kind=%s codec=%s track_id=%s",
 			p.ID[:8],
 			remoteTrack.Kind().String(),
 			remoteTrack.Codec().MimeType,
+			trackID,
 		)
 
 		localTrack, err := webrtc.NewTrackLocalStaticRTP(
 			remoteTrack.Codec().RTPCodecCapability,
-			remoteTrack.Kind().String()+"-"+p.ID[:8],
+			trackID,
 			"stream-"+p.ID[:8],
 		)
 		if err != nil {
@@ -104,10 +118,10 @@ func NewPeer(
 		}
 
 		p.stateMu.Lock()
-		p.localTracks = append(p.localTracks, localTrack)
+		p.localTracks[trackID] = localTrack
 		p.stateMu.Unlock()
 
-		p.room.BroadcastTrack(p, localTrack)
+		p.room.RegisterPublishedTrack(p, trackID, localTrack)
 
 		go func() {
 			buf := make([]byte, 1500)
@@ -115,11 +129,15 @@ func NewPeer(
 				n, _, readErr := remoteTrack.Read(buf)
 				if readErr != nil {
 					log.Printf("[calls][peer=%s] track read failed: %v", p.ID[:8], readErr)
+					p.removeLocalTrack(trackID)
+					p.room.UnpublishTrack(p.ID, trackID)
 					return
 				}
 
 				if _, writeErr := localTrack.Write(buf[:n]); writeErr != nil {
 					log.Printf("[calls][peer=%s] track write failed: %v", p.ID[:8], writeErr)
+					p.removeLocalTrack(trackID)
+					p.room.UnpublishTrack(p.ID, trackID)
 					return
 				}
 			}
@@ -133,13 +151,7 @@ func (p *Peer) Send(sig Signal) {
 	p.writeMu.Lock()
 	defer p.writeMu.Unlock()
 
-	payload, err := json.Marshal(sig)
-	if err != nil {
-		log.Printf("[calls][peer=%s] send marshal failed: %v", p.ID[:8], err)
-		return
-	}
-
-	if err := p.conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+	if err := p.ws.WriteSignal(sig); err != nil {
 		log.Printf("[calls][peer=%s] send failed: %v", p.ID[:8], err)
 	}
 }
@@ -192,14 +204,29 @@ func (p *Peer) HandleICECandidate(candidateJSON json.RawMessage) error {
 	return p.pc.AddICECandidate(candidate)
 }
 
-func (p *Peer) AddTrack(track *webrtc.TrackLocalStaticRTP) error {
+func (p *Peer) AddTrack(track *webrtc.TrackLocalStaticRTP, publisherPeerID string, trackID string) error {
+	if publisherPeerID == p.ID {
+		return nil
+	}
+
+	p.stateMu.RLock()
+	if _, exists := p.remoteSenders[trackID]; exists {
+		p.stateMu.RUnlock()
+		return nil
+	}
+	p.stateMu.RUnlock()
+
 	sender, err := p.pc.AddTrack(track)
 	if err != nil {
 		return err
 	}
 
 	p.stateMu.Lock()
-	p.remoteSenders = append(p.remoteSenders, sender)
+	p.remoteSenders[trackID] = &RemoteSenderBinding{
+		Sender:          sender,
+		PublisherPeerID: publisherPeerID,
+		TrackID:         trackID,
+	}
 	p.stateMu.Unlock()
 
 	go func() {
@@ -210,6 +237,33 @@ func (p *Peer) AddTrack(track *webrtc.TrackLocalStaticRTP) error {
 			}
 		}
 	}()
+
+	return p.Renegotiate()
+}
+
+func (p *Peer) RemovePublisherTracks(publisherPeerID string) error {
+	p.stateMu.Lock()
+	toRemove := make([]*webrtc.RTPSender, 0)
+	removed := false
+
+	for trackID, binding := range p.remoteSenders {
+		if binding.PublisherPeerID == publisherPeerID {
+			toRemove = append(toRemove, binding.Sender)
+			delete(p.remoteSenders, trackID)
+			removed = true
+		}
+	}
+	p.stateMu.Unlock()
+
+	if !removed {
+		return nil
+	}
+
+	for _, sender := range toRemove {
+		if err := p.pc.RemoveTrack(sender); err != nil {
+			log.Printf("[calls][peer=%s] remove track failed: %v", p.ID[:8], err)
+		}
+	}
 
 	return p.Renegotiate()
 }
@@ -240,13 +294,21 @@ func (p *Peer) Renegotiate() error {
 	return nil
 }
 
-func (p *Peer) GetLocalTracks() []*webrtc.TrackLocalStaticRTP {
+func (p *Peer) SnapshotLocalTracks() map[string]*webrtc.TrackLocalStaticRTP {
 	p.stateMu.RLock()
 	defer p.stateMu.RUnlock()
 
-	out := make([]*webrtc.TrackLocalStaticRTP, len(p.localTracks))
-	copy(out, p.localTracks)
+	out := make(map[string]*webrtc.TrackLocalStaticRTP, len(p.localTracks))
+	for key, track := range p.localTracks {
+		out[key] = track
+	}
 	return out
+}
+
+func (p *Peer) removeLocalTrack(trackID string) {
+	p.stateMu.Lock()
+	defer p.stateMu.Unlock()
+	delete(p.localTracks, trackID)
 }
 
 func (p *Peer) Close() {
@@ -257,13 +319,13 @@ func (p *Peer) Close() {
 		close(p.done)
 	}
 
+	if p.room != nil {
+		p.room.RemovePeer(p.ID)
+	}
 	if p.pc != nil {
 		_ = p.pc.Close()
 	}
-	if p.conn != nil {
-		_ = p.conn.Close()
-	}
-	if p.room != nil {
-		p.room.RemovePeer(p.ID)
+	if p.ws != nil {
+		_ = p.ws.Close()
 	}
 }
