@@ -18,6 +18,7 @@ type Hub struct {
 	mu                 sync.RWMutex
 	users              map[string]map[*Client]struct{}
 	chats              map[string]map[*Client]struct{}
+	callRooms          map[string]map[*Client]struct{}
 	presence           *presence.Service
 	access             *chataccess.Service
 	stream             *eventstream.Service
@@ -39,6 +40,7 @@ func NewHub(
 	return &Hub{
 		users:           make(map[string]map[*Client]struct{}),
 		chats:           make(map[string]map[*Client]struct{}),
+		callRooms:       make(map[string]map[*Client]struct{}),
 		presence:        presenceService,
 		access:          accessService,
 		stream:          streamService,
@@ -86,6 +88,15 @@ func (h *Hub) Unregister(client *Client) {
 			delete(chatClients, client)
 			if len(chatClients) == 0 {
 				delete(h.chats, chatUUID)
+			}
+		}
+	}
+
+	for roomKey := range client.callRooms {
+		if roomClients, ok := h.callRooms[roomKey]; ok {
+			delete(roomClients, client)
+			if len(roomClients) == 0 {
+				delete(h.callRooms, roomKey)
 			}
 		}
 	}
@@ -213,6 +224,97 @@ func (h *Hub) BroadcastToChat(chatUUID string, message OutgoingMessage) {
 	targets := make([]*Client, 0, len(targetsMap))
 	for client := range targetsMap {
 		targets = append(targets, client)
+	}
+	h.mu.RUnlock()
+
+	staleClients := make([]*Client, 0)
+
+	for _, client := range targets {
+		select {
+		case client.Send <- payload:
+		default:
+			staleClients = append(staleClients, client)
+		}
+	}
+
+	for _, client := range staleClients {
+		h.Unregister(client)
+	}
+}
+
+func (h *Hub) JoinCallRoom(client *Client, roomKey string) []string {
+	if roomKey == "" {
+		return []string{}
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if _, ok := h.callRooms[roomKey]; !ok {
+		h.callRooms[roomKey] = make(map[*Client]struct{})
+	}
+
+	existingPeers := make([]string, 0, len(h.callRooms[roomKey]))
+	for peer := range h.callRooms[roomKey] {
+		if peer != client && peer.PeerID != "" {
+			existingPeers = append(existingPeers, peer.PeerID)
+		}
+	}
+
+	h.callRooms[roomKey][client] = struct{}{}
+	client.callRooms[roomKey] = struct{}{}
+
+	return existingPeers
+}
+
+func (h *Hub) LeaveCallRoom(client *Client, roomKey string) {
+	if roomKey == "" {
+		return
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if roomClients, ok := h.callRooms[roomKey]; ok {
+		delete(roomClients, client)
+		if len(roomClients) == 0 {
+			delete(h.callRooms, roomKey)
+		}
+	}
+
+	delete(client.callRooms, roomKey)
+}
+
+func (h *Hub) IsInCallRoom(client *Client, roomKey string) bool {
+	if roomKey == "" {
+		return false
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	_, ok := client.callRooms[roomKey]
+	return ok
+}
+
+func (h *Hub) BroadcastToCallRoom(roomKey string, sender *Client, message OutgoingMessage) {
+	if roomKey == "" {
+		return
+	}
+
+	payload, err := json.Marshal(message)
+	if err != nil {
+		log.Printf("call broadcast marshal failed: %v", err)
+		return
+	}
+
+	h.mu.RLock()
+	roomClients := h.callRooms[roomKey]
+	targets := make([]*Client, 0, len(roomClients))
+	for client := range roomClients {
+		if client != sender {
+			targets = append(targets, client)
+		}
 	}
 	h.mu.RUnlock()
 

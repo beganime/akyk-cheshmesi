@@ -11,6 +11,7 @@ from redis.exceptions import ResponseError
 from apps.chats.models import Chat, ChatMember
 from apps.common.redis import get_stream_redis
 from apps.mediafiles.models import MessageAttachment, UploadedMedia
+from apps.mediafiles.serializers import get_uploaded_media_file_url
 from apps.messaging.models import Message, MessageReceipt
 from apps.messaging.realtime_events import publish_realtime_event
 from apps.users.models import User
@@ -280,15 +281,6 @@ class MessageStreamSaver:
         items = []
         for attachment in attachments:
             media = attachment.media
-            file_url = None
-            if media.file:
-                try:
-                    file_url = media.file.url
-                except Exception:
-                    file_url = None
-            if not file_url:
-                file_url = media.meta.get("file_url")
-
             items.append(
                 {
                     "uuid": str(media.uuid),
@@ -296,10 +288,94 @@ class MessageStreamSaver:
                     "content_type": media.content_type,
                     "size": media.size,
                     "media_kind": media.media_kind,
-                    "file_url": file_url,
+                    "file_url": get_uploaded_media_file_url(media),
                 }
             )
+
         return items
+
+    def _build_sender_payload(self, user: User) -> dict[str, Any]:
+        full_name = ""
+        try:
+            full_name = user.get_full_name()
+        except Exception:
+            full_name = ""
+
+        return {
+            "uuid": str(user.uuid),
+            "email": user.email,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "full_name": full_name,
+        }
+
+    def _build_reply_payload(self, message: Message) -> dict[str, Any] | None:
+        reply_to = message.reply_to
+        if not reply_to:
+            return None
+
+        return {
+            "uuid": str(reply_to.uuid),
+            "text": "Сообщение удалено" if reply_to.is_deleted else reply_to.text,
+            "message_type": reply_to.message_type,
+            "sender": self._build_sender_payload(reply_to.sender) if reply_to.sender else None,
+            "created_at": reply_to.created_at.isoformat() if reply_to.created_at else None,
+        }
+
+    def _build_message_payload(self, message: Message) -> dict[str, Any]:
+        message = (
+            Message.objects.select_related("sender", "reply_to", "reply_to__sender")
+            .prefetch_related("attachments__media", "receipts")
+            .get(id=message.id)
+        )
+
+        if message.is_deleted:
+            return {
+                "uuid": str(message.uuid),
+                "client_uuid": str(message.client_uuid) if message.client_uuid else None,
+                "message_type": message.message_type,
+                "text": "Сообщение удалено",
+                "reply_to": self._build_reply_payload(message),
+                "metadata": {},
+                "is_edited": message.is_edited,
+                "edited_at": message.edited_at.isoformat() if message.edited_at else None,
+                "is_deleted": True,
+                "deleted_at": message.deleted_at.isoformat() if message.deleted_at else None,
+                "sender": self._build_sender_payload(message.sender),
+                "is_own_message": False,
+                "delivered_to_count": 0,
+                "read_by_count": 0,
+                "delivery_status": None,
+                "attachments": [],
+                "created_at": message.created_at.isoformat() if message.created_at else None,
+                "updated_at": message.updated_at.isoformat() if message.updated_at else None,
+            }
+
+        receipts = list(message.receipts.all())
+        delivered_to_count = sum(1 for receipt in receipts if receipt.delivered_at is not None)
+        read_by_count = sum(1 for receipt in receipts if receipt.read_at is not None)
+
+        return {
+            "uuid": str(message.uuid),
+            "client_uuid": str(message.client_uuid) if message.client_uuid else None,
+            "message_type": message.message_type,
+            "text": message.text,
+            "reply_to": self._build_reply_payload(message),
+            "metadata": message.metadata or {},
+            "is_edited": message.is_edited,
+            "edited_at": message.edited_at.isoformat() if message.edited_at else None,
+            "is_deleted": message.is_deleted,
+            "deleted_at": message.deleted_at.isoformat() if message.deleted_at else None,
+            "sender": self._build_sender_payload(message.sender),
+            "is_own_message": False,
+            "delivered_to_count": delivered_to_count,
+            "read_by_count": read_by_count,
+            "delivery_status": None,
+            "attachments": self._build_attachment_payloads(message),
+            "created_at": message.created_at.isoformat() if message.created_at else None,
+            "updated_at": message.updated_at.isoformat() if message.updated_at else None,
+        }
 
     def _emit_persisted_event(
         self,
@@ -309,17 +385,20 @@ class MessageStreamSaver:
         entry_id: str,
         persisted_status: str,
     ) -> None:
+        message_payload = self._build_message_payload(message)
+
         publish_realtime_event(
             "message_persisted",
             str(message.chat.uuid),
             {
+                "message": message_payload,
                 "message_uuid": str(message.uuid),
                 "chat_uuid": str(message.chat.uuid),
                 "sender_uuid": str(message.sender.uuid),
                 "client_uuid": client_uuid or "",
                 "message_type": message.message_type,
                 "text": message.text or "",
-                "attachments": self._build_attachment_payloads(message),
+                "attachments": message_payload.get("attachments", []),
                 "stream_entry_id": entry_id,
                 "persisted_status": persisted_status,
                 "persisted_at": message.created_at.isoformat(),

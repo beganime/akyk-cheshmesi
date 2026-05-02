@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -26,7 +27,9 @@ type Client struct {
 	UserUUID      string
 	Email         string
 	Username      string
+	PeerID        string
 	subscriptions map[string]struct{}
+	callRooms     map[string]struct{}
 	closed        chan struct{}
 }
 
@@ -42,7 +45,9 @@ func NewClient(hub *Hub, conn *websocket.Conn, userUUID, email, username string,
 		UserUUID:      userUUID,
 		Email:         email,
 		Username:      username,
+		PeerID:        fmt.Sprintf("%s-%d", userUUID, time.Now().UnixNano()),
 		subscriptions: make(map[string]struct{}),
+		callRooms:     make(map[string]struct{}),
 		closed:        make(chan struct{}),
 	}
 }
@@ -146,6 +151,7 @@ func (c *Client) handleIncoming(raw []byte) {
 				"user_uuid": c.UserUUID,
 				"email":     c.Email,
 				"username":  c.Username,
+				"peer_id":   c.PeerID,
 			},
 		})
 
@@ -207,7 +213,7 @@ func (c *Client) handleIncoming(raw []byte) {
 			c.sendJSON(OutgoingMessage{
 				Type: "rate_limited",
 				Payload: map[string]interface{}{
-					"scope": "typing",
+					"scope":               "typing",
 					"retry_after_seconds": retryAfter,
 				},
 			})
@@ -254,10 +260,10 @@ func (c *Client) handleIncoming(raw []byte) {
 		}
 		if !allowedRate {
 			c.sendJSON(OutgoingMessage{
-				Type: "rate_limited",
+				Type:     "rate_limited",
 				ChatUUID: incoming.ChatUUID,
 				Payload: map[string]interface{}{
-					"scope": "messages",
+					"scope":               "messages",
 					"retry_after_seconds": retryAfter,
 				},
 			})
@@ -368,10 +374,10 @@ func (c *Client) handleIncoming(raw []byte) {
 		}
 		if !allowedRate {
 			c.sendJSON(OutgoingMessage{
-				Type: "rate_limited",
+				Type:     "rate_limited",
 				ChatUUID: incoming.ChatUUID,
 				Payload: map[string]interface{}{
-					"scope": "statuses",
+					"scope":               "statuses",
 					"retry_after_seconds": retryAfter,
 				},
 			})
@@ -417,6 +423,112 @@ func (c *Client) handleIncoming(raw []byte) {
 				"message_uuid": incoming.MessageUUID,
 				"stream_id":    streamID,
 				"status":       "queued",
+			},
+		})
+
+	case "join_call":
+		if incoming.ChatUUID == "" || incoming.CallUUID == "" || incoming.RoomKey == "" {
+			c.sendError("chat_uuid, call_uuid and room_key are required")
+			return
+		}
+
+		allowed, _, err := c.Hub.CanAccessChat(context.Background(), incoming.ChatUUID, c.UserUUID)
+		if err != nil {
+			log.Printf("join call access check failed: %v", err)
+			c.sendError("call access check failed")
+			return
+		}
+		if !allowed {
+			c.sendError("you are not a member of this chat")
+			return
+		}
+
+		existingPeers := c.Hub.JoinCallRoom(c, incoming.RoomKey)
+
+		c.sendJSON(OutgoingMessage{
+			Type:     "joined_call",
+			ChatUUID: incoming.ChatUUID,
+			CallUUID: incoming.CallUUID,
+			RoomKey:  incoming.RoomKey,
+			PeerID:   c.PeerID,
+			Payload: map[string]interface{}{
+				"peer_id":        c.PeerID,
+				"existing_peers": existingPeers,
+			},
+		})
+
+		c.Hub.BroadcastToCallRoom(incoming.RoomKey, c, OutgoingMessage{
+			Type:     "call_new_peer",
+			ChatUUID: incoming.ChatUUID,
+			CallUUID: incoming.CallUUID,
+			RoomKey:  incoming.RoomKey,
+			PeerID:   c.PeerID,
+			Payload: map[string]interface{}{
+				"peer_id": c.PeerID,
+			},
+		})
+
+	case "leave_call":
+		if incoming.RoomKey == "" {
+			c.sendError("room_key is required")
+			return
+		}
+
+		c.Hub.LeaveCallRoom(c, incoming.RoomKey)
+
+		c.Hub.BroadcastToCallRoom(incoming.RoomKey, c, OutgoingMessage{
+			Type:     "call_peer_left",
+			ChatUUID: incoming.ChatUUID,
+			CallUUID: incoming.CallUUID,
+			RoomKey:  incoming.RoomKey,
+			PeerID:   c.PeerID,
+			Payload: map[string]interface{}{
+				"peer_id": c.PeerID,
+			},
+		})
+
+	case "call_offer", "call_answer":
+		if incoming.ChatUUID == "" || incoming.CallUUID == "" || incoming.RoomKey == "" || incoming.SDP == "" {
+			c.sendError("chat_uuid, call_uuid, room_key and sdp are required")
+			return
+		}
+		if !c.Hub.IsInCallRoom(c, incoming.RoomKey) {
+			c.sendError("join call room first")
+			return
+		}
+
+		c.Hub.BroadcastToCallRoom(incoming.RoomKey, c, OutgoingMessage{
+			Type:     incoming.Type,
+			ChatUUID: incoming.ChatUUID,
+			CallUUID: incoming.CallUUID,
+			RoomKey:  incoming.RoomKey,
+			PeerID:   c.PeerID,
+			SDP:      incoming.SDP,
+			SDPType:  incoming.SDPType,
+			Payload: map[string]interface{}{
+				"peer_id": c.PeerID,
+			},
+		})
+
+	case "call_ice":
+		if incoming.ChatUUID == "" || incoming.CallUUID == "" || incoming.RoomKey == "" || incoming.Candidate == nil {
+			c.sendError("chat_uuid, call_uuid, room_key and candidate are required")
+			return
+		}
+		if !c.Hub.IsInCallRoom(c, incoming.RoomKey) {
+			c.sendError("join call room first")
+			return
+		}
+
+		c.Hub.BroadcastToCallRoom(incoming.RoomKey, c, OutgoingMessage{
+			Type:      "call_ice",
+			ChatUUID:  incoming.ChatUUID,
+			CallUUID:  incoming.CallUUID,
+			RoomKey:   incoming.RoomKey,
+			PeerID:    c.PeerID,
+			Candidate: incoming.Candidate,
+			Payload: map[string]interface{}{
+				"peer_id": c.PeerID,
 			},
 		})
 

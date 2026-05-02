@@ -142,6 +142,7 @@ class MediaPresignAPIView(generics.GenericAPIView):
             Params={
                 "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
                 "Key": object_key,
+                "ContentType": validated.content_type,
             },
             ExpiresIn=900,
         )
@@ -152,7 +153,9 @@ class MediaPresignAPIView(generics.GenericAPIView):
                 "upload": {
                     "method": "PUT",
                     "url": upload_url,
-                    "headers": {},
+                    "headers": {
+                        "Content-Type": validated.content_type,
+                    },
                     "expires_in_seconds": 900,
                 },
             },

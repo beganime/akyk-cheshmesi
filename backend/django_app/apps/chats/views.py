@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from apps.chats.models import Chat, ChatMember
 from apps.common.pagination import ChatListPagination, MessageCursorPagination
 from apps.messaging.models import Message, MessageReceipt
+from apps.messaging.realtime_events import publish_realtime_event
 from apps.messaging.serializers import (
     MessageCreateSerializer,
     MessageDeleteSerializer,
@@ -62,6 +63,15 @@ def get_user_message_or_404(user, chat_uuid, message_uuid):
         )
         .distinct()
     )
+
+
+def serialize_message_for_realtime(message, request):
+    message = (
+        Message.objects.select_related("sender", "reply_to", "reply_to__sender")
+        .prefetch_related("receipts", "attachments__media")
+        .get(id=message.id)
+    )
+    return MessageListSerializer(message, context={"request": request}).data
 
 
 class ChatListAPIView(generics.ListAPIView):
@@ -237,11 +247,27 @@ class ChatMessagesAPIView(generics.GenericAPIView):
         )
         serializer.is_valid(raise_exception=True)
         message = serializer.save()
-        output = MessageListSerializer(message, context={"request": request})
+
+        output_data = serialize_message_for_realtime(message, request)
         response_status = (
             status.HTTP_200_OK if getattr(serializer, "was_existing", False) else status.HTTP_201_CREATED
         )
-        return Response(output.data, status=response_status)
+
+        publish_realtime_event(
+            "message_persisted",
+            str(chat.uuid),
+            {
+                "message": output_data,
+                "message_uuid": str(message.uuid),
+                "chat_uuid": str(chat.uuid),
+                "sender_uuid": str(message.sender.uuid),
+                "client_uuid": str(message.client_uuid or ""),
+                "message_type": message.message_type,
+                "persisted_status": "duplicate" if getattr(serializer, "was_existing", False) else "saved",
+            },
+        )
+
+        return Response(output_data, status=response_status)
 
 
 class ChatMessageDetailAPIView(generics.GenericAPIView):
@@ -253,7 +279,7 @@ class ChatMessageDetailAPIView(generics.GenericAPIView):
             self.kwargs["chat_uuid"],
             self.kwargs["message_uuid"],
         )
-    
+
     def get(self, request, *args, **kwargs):
         message = self.get_message()
         output = MessageListSerializer(message, context={"request": request})
