@@ -135,6 +135,9 @@ func (c *Client) handleIncoming(raw []byte) {
 		return
 	}
 
+	originalType := strings.TrimSpace(incoming.Type)
+	incoming.Type = normalizeIncomingType(originalType)
+
 	switch incoming.Type {
 	case "ping":
 		c.sendJSON(OutgoingMessage{
@@ -236,7 +239,7 @@ func (c *Client) handleIncoming(raw []byte) {
 		}
 
 		c.Hub.BroadcastToChat(incoming.ChatUUID, OutgoingMessage{
-			Type:     incoming.Type,
+			Type:     publicEventType(incoming.Type, originalType),
 			ChatUUID: incoming.ChatUUID,
 			Payload: map[string]interface{}{
 				"user_uuid":  c.UserUUID,
@@ -340,7 +343,7 @@ func (c *Client) handleIncoming(raw []byte) {
 		})
 
 		c.Hub.BroadcastToChat(incoming.ChatUUID, OutgoingMessage{
-			Type:     "chat_message",
+			Type:     publicEventType(incoming.Type, originalType),
 			ChatUUID: incoming.ChatUUID,
 			Payload: map[string]interface{}{
 				"sender_uuid":     c.UserUUID,
@@ -426,6 +429,67 @@ func (c *Client) handleIncoming(raw []byte) {
 			},
 		})
 
+	case "user_online", "user_offline":
+		if incoming.ChatUUID == "" {
+			c.sendError("chat_uuid is required")
+			return
+		}
+		if !c.Hub.IsSubscribed(c, incoming.ChatUUID) {
+			c.sendError("subscribe to chat first")
+			return
+		}
+		allowed, _, err := c.Hub.CanAccessChat(context.Background(), incoming.ChatUUID, c.UserUUID)
+		if err != nil {
+			log.Printf("presence chat access check failed: %v", err)
+			c.sendError("presence permission check failed")
+			return
+		}
+		if !allowed {
+			c.sendError("you are not a member of this chat")
+			return
+		}
+		c.Hub.BroadcastToChat(incoming.ChatUUID, OutgoingMessage{
+			Type:     publicEventType(incoming.Type, originalType),
+			ChatUUID: incoming.ChatUUID,
+			Payload: map[string]interface{}{
+				"user_uuid":  c.UserUUID,
+				"email":      c.Email,
+				"username":   c.Username,
+				"device_id":  incoming.DeviceID,
+				"emitted_at": time.Now().UTC().Format(time.RFC3339),
+			},
+		})
+
+	case "call_invite", "call_accept", "call_decline", "call_end", "call_missed":
+		if incoming.ChatUUID == "" {
+			c.sendError("chat_uuid is required")
+			return
+		}
+		allowed, _, err := c.Hub.CanAccessChat(context.Background(), incoming.ChatUUID, c.UserUUID)
+		if err != nil {
+			log.Printf("call event chat access check failed: %v", err)
+			c.sendError("call permission check failed")
+			return
+		}
+		if !allowed {
+			c.sendError("you are not a member of this chat")
+			return
+		}
+		c.Hub.BroadcastToChat(incoming.ChatUUID, OutgoingMessage{
+			Type:     publicEventType(incoming.Type, originalType),
+			ChatUUID: incoming.ChatUUID,
+			CallUUID: incoming.CallUUID,
+			RoomKey:  incoming.RoomKey,
+			PeerID:   c.PeerID,
+			Payload: map[string]interface{}{
+				"actor_uuid": c.UserUUID,
+				"email":      c.Email,
+				"username":   c.Username,
+				"payload":    incoming.Payload,
+				"emitted_at": time.Now().UTC().Format(time.RFC3339),
+			},
+		})
+
 	case "join_call":
 		if incoming.ChatUUID == "" || incoming.CallUUID == "" || incoming.RoomKey == "" {
 			c.sendError("chat_uuid, call_uuid and room_key are required")
@@ -498,7 +562,7 @@ func (c *Client) handleIncoming(raw []byte) {
 		}
 
 		c.Hub.BroadcastToCallRoom(incoming.RoomKey, c, OutgoingMessage{
-			Type:     incoming.Type,
+			Type:     publicEventType(incoming.Type, originalType),
 			ChatUUID: incoming.ChatUUID,
 			CallUUID: incoming.CallUUID,
 			RoomKey:  incoming.RoomKey,
@@ -521,7 +585,7 @@ func (c *Client) handleIncoming(raw []byte) {
 		}
 
 		c.Hub.BroadcastToCallRoom(incoming.RoomKey, c, OutgoingMessage{
-			Type:      "call_ice",
+			Type:      publicEventType(incoming.Type, originalType),
 			ChatUUID:  incoming.ChatUUID,
 			CallUUID:  incoming.CallUUID,
 			RoomKey:   incoming.RoomKey,
@@ -557,5 +621,82 @@ func (c *Client) sendJSON(message OutgoingMessage) {
 	case c.Send <- payload:
 	default:
 		c.Hub.Unregister(c)
+	}
+}
+
+func normalizeIncomingType(messageType string) string {
+	switch messageType {
+	case "message:new":
+		return "chat_message"
+	case "message:delivered":
+		return "message_delivered"
+	case "message:read":
+		return "message_read"
+	case "typing:start":
+		return "typing_start"
+	case "typing:stop":
+		return "typing_stop"
+	case "user:online":
+		return "user_online"
+	case "user:offline":
+		return "user_offline"
+	case "call:invite":
+		return "call_invite"
+	case "call:accept":
+		return "call_accept"
+	case "call:decline":
+		return "call_decline"
+	case "call:end":
+		return "call_end"
+	case "call:missed":
+		return "call_missed"
+	case "call:offer":
+		return "call_offer"
+	case "call:answer":
+		return "call_answer"
+	case "call:ice-candidate":
+		return "call_ice"
+	default:
+		return messageType
+	}
+}
+
+func publicEventType(canonical string, original string) string {
+	if original != "" {
+		return original
+	}
+	switch canonical {
+	case "chat_message":
+		return "message:new"
+	case "typing_start":
+		return "typing:start"
+	case "typing_stop":
+		return "typing:stop"
+	case "message_delivered":
+		return "message:delivered"
+	case "message_read":
+		return "message:read"
+	case "user_online":
+		return "user:online"
+	case "user_offline":
+		return "user:offline"
+	case "call_invite":
+		return "call:invite"
+	case "call_accept":
+		return "call:accept"
+	case "call_decline":
+		return "call:decline"
+	case "call_end":
+		return "call:end"
+	case "call_missed":
+		return "call:missed"
+	case "call_offer":
+		return "call:offer"
+	case "call_answer":
+		return "call:answer"
+	case "call_ice":
+		return "call:ice-candidate"
+	default:
+		return canonical
 	}
 }

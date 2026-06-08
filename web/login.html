@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Вход - Akyl Cheshmesi</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="auth-body">
+  <main class="auth-layout">
+    <section class="auth-panel">
+      <a class="brand" href="/"><span class="brand-mark">A</span><span>Akyl Cheshmesi</span></a>
+      <h1>Войти в web messenger</h1>
+      <p>Используйте email и пароль аккаунта. После входа откроется web cabinet в стиле Telegram.</p>
+      <form id="loginForm" class="auth-form">
+        <label>
+          <span>Email</span>
+          <input id="email" type="email" autocomplete="email" required placeholder="you@example.com">
+        </label>
+        <label>
+          <span>Пароль</span>
+          <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+        </label>
+        <button type="submit" class="primary-action full">Войти</button>
+        <div id="loginMessage" class="form-message" role="status"></div>
+      </form>
+      <div class="auth-links">
+        <a href="/">Главная</a>
+        <a href="/privacy/">Privacy</a>
+      </div>
+    </section>
+    <section class="auth-visual" aria-label="Messenger preview">
+      <div class="floating-phone">
+        <div class="phone-top"></div>
+        <div class="phone-chat incoming"></div>
+        <div class="phone-chat outgoing"></div>
+        <div class="phone-chat incoming short"></div>
+        <div class="phone-input"></div>
+      </div>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

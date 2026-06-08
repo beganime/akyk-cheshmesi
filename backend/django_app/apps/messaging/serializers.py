@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -6,8 +7,10 @@ from apps.mediafiles.serializers import MediaAttachmentBriefSerializer
 from apps.messaging.models import Message, MessageReceipt, MessageUserState
 from apps.users.public_serializers import UserShortSerializer
 
-VIDEO_MAX_DURATION_SECONDS = 30
+VIDEO_MAX_DURATION_SECONDS = 600
 AUDIO_MAX_DURATION_SECONDS = 300
+VIDEO_NOTE_MAX_DURATION_SECONDS = 60
+DELETED_MESSAGE_TEXT = "Сообщение удалено"
 
 
 class ReplyMessageShortSerializer(serializers.ModelSerializer):
@@ -25,10 +28,8 @@ class ReplyMessageShortSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-
         if instance.is_deleted:
-            data["text"] = "Сообщение удалено"
-
+            data["text"] = DELETED_MESSAGE_TEXT
         return data
 
 
@@ -88,22 +89,16 @@ class MessageListSerializer(serializers.ModelSerializer):
 
     def get_delivery_status(self, obj):
         request = self.context.get("request")
-
         if not request or request.user.id != obj.sender_id:
             return None
 
         receipts = list(self._get_receipts(obj))
         if not receipts:
             return "sent"
-
-        has_read = any(receipt.read_at is not None for receipt in receipts)
-        if has_read:
+        if any(receipt.read_at is not None for receipt in receipts):
             return "read"
-
-        has_delivered = any(receipt.delivered_at is not None for receipt in receipts)
-        if has_delivered:
+        if any(receipt.delivered_at is not None for receipt in receipts):
             return "delivered"
-
         return "sent"
 
     def get_attachments(self, obj):
@@ -116,15 +111,13 @@ class MessageListSerializer(serializers.ModelSerializer):
             many=True,
             context=self.context,
         ).data
-        
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
-
         if instance.is_deleted:
-            data["text"] = "Сообщение удалено"
+            data["text"] = DELETED_MESSAGE_TEXT
             data["metadata"] = {}
             data["attachments"] = []
-
         return data
 
 
@@ -164,66 +157,80 @@ class MessageCreateSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"reply_to_uuid": "Reply message not found"})
             attrs["reply_to"] = reply_to
 
-        attachment_uuid_values = attrs.get("attachment_uuids", []) or []
-        uploaded_media = []
-
-        if attachment_uuid_values:
-            media_queryset = UploadedMedia.objects.filter(
-                uuid__in=attachment_uuid_values,
-                owner=user,
-                status=UploadedMedia.Status.UPLOADED,
-            )
-            media_map = {str(media.uuid): media for media in media_queryset}
-            ordered_media = []
-
-            for attachment_uuid in attachment_uuid_values:
-                media = media_map.get(str(attachment_uuid))
-                if not media:
-                    raise serializers.ValidationError(
-                        {"attachment_uuids": f"Uploaded media not found or not ready: {attachment_uuid}"}
-                    )
-                ordered_media.append(media)
-
-            uploaded_media = ordered_media
+        uploaded_media = self._resolve_uploaded_media(attrs.get("attachment_uuids", []) or [], user)
 
         if message_type == Message.MessageType.IMAGE:
-            if len(uploaded_media) == 0:
-                raise serializers.ValidationError({"attachment_uuids": "Image message requires attachments"})
-            if len(uploaded_media) > 10:
-                raise serializers.ValidationError({"attachment_uuids": "Only up to 10 images per message"})
-            if any(media.media_kind != UploadedMedia.MediaKind.IMAGE for media in uploaded_media):
-                raise serializers.ValidationError({"attachment_uuids": "Image message accepts only image attachments"})
-
-        if message_type == Message.MessageType.VIDEO:
+            self._validate_image_message(uploaded_media)
+        elif message_type == Message.MessageType.VIDEO:
+            self._validate_single_media_message(
+                uploaded_media,
+                UploadedMedia.MediaKind.VIDEO,
+                "Video message requires exactly one video",
+                getattr(settings, "VIDEO_MAX_DURATION_SECONDS", VIDEO_MAX_DURATION_SECONDS),
+            )
+        elif message_type == Message.MessageType.AUDIO:
+            self._validate_single_media_message(
+                uploaded_media,
+                UploadedMedia.MediaKind.AUDIO,
+                "Voice message requires exactly one audio",
+                getattr(settings, "AUDIO_MAX_DURATION_SECONDS", AUDIO_MAX_DURATION_SECONDS),
+            )
+        elif message_type == Message.MessageType.VIDEO_NOTE:
+            self._validate_single_media_message(
+                uploaded_media,
+                UploadedMedia.MediaKind.VIDEO,
+                "Video note requires exactly one video",
+                getattr(settings, "VIDEO_NOTE_MAX_DURATION_SECONDS", VIDEO_NOTE_MAX_DURATION_SECONDS),
+            )
+        elif message_type == Message.MessageType.FILE:
             if len(uploaded_media) != 1:
-                raise serializers.ValidationError({"attachment_uuids": "Video message requires exactly one video"})
-            media = uploaded_media[0]
-            if media.media_kind != UploadedMedia.MediaKind.VIDEO:
-                raise serializers.ValidationError({"attachment_uuids": "Attachment must be video"})
-            duration = int((media.meta or {}).get("duration_seconds") or 0)
-            if duration > VIDEO_MAX_DURATION_SECONDS:
-                raise serializers.ValidationError(
-                    {"attachment_uuids": f"Video duration must be <= {VIDEO_MAX_DURATION_SECONDS}s"}
-                )
-
-        if message_type == Message.MessageType.AUDIO:
-            if len(uploaded_media) != 1:
-                raise serializers.ValidationError({"attachment_uuids": "Voice message requires exactly one audio"})
-            media = uploaded_media[0]
-            if media.media_kind != UploadedMedia.MediaKind.AUDIO:
-                raise serializers.ValidationError({"attachment_uuids": "Attachment must be audio"})
-            duration = int((media.meta or {}).get("duration_seconds") or 0)
-            if duration > AUDIO_MAX_DURATION_SECONDS:
-                raise serializers.ValidationError(
-                    {"attachment_uuids": f"Audio duration must be <= {AUDIO_MAX_DURATION_SECONDS}s"}
-                )
-
-        if not text and not uploaded_media and message_type == Message.MessageType.TEXT:
+                raise serializers.ValidationError({"attachment_uuids": "File message requires exactly one attachment"})
+        elif message_type == Message.MessageType.TEXT and not text and not uploaded_media:
             raise serializers.ValidationError({"text": "Text is required for text messages without attachments"})
 
         attrs["text"] = text
         attrs["uploaded_media"] = uploaded_media
         return attrs
+
+    def _resolve_uploaded_media(self, attachment_uuid_values, user):
+        if not attachment_uuid_values:
+            return []
+
+        media_queryset = UploadedMedia.objects.filter(
+            uuid__in=attachment_uuid_values,
+            owner=user,
+            status=UploadedMedia.Status.UPLOADED,
+        )
+        media_map = {str(media.uuid): media for media in media_queryset}
+        ordered_media = []
+
+        for attachment_uuid in attachment_uuid_values:
+            media = media_map.get(str(attachment_uuid))
+            if not media:
+                raise serializers.ValidationError(
+                    {"attachment_uuids": f"Uploaded media not found or not ready: {attachment_uuid}"}
+                )
+            ordered_media.append(media)
+
+        return ordered_media
+
+    def _validate_image_message(self, uploaded_media):
+        if len(uploaded_media) == 0:
+            raise serializers.ValidationError({"attachment_uuids": "Image message requires attachments"})
+        if len(uploaded_media) > 10:
+            raise serializers.ValidationError({"attachment_uuids": "Only up to 10 images per message"})
+        if any(media.media_kind != UploadedMedia.MediaKind.IMAGE for media in uploaded_media):
+            raise serializers.ValidationError({"attachment_uuids": "Image message accepts only image attachments"})
+
+    def _validate_single_media_message(self, uploaded_media, expected_kind, empty_error, max_duration):
+        if len(uploaded_media) != 1:
+            raise serializers.ValidationError({"attachment_uuids": empty_error})
+        media = uploaded_media[0]
+        if media.media_kind != expected_kind:
+            raise serializers.ValidationError({"attachment_uuids": f"Attachment must be {expected_kind}"})
+        duration = int(media.duration_seconds or (media.meta or {}).get("duration_seconds") or 0)
+        if duration > max_duration:
+            raise serializers.ValidationError({"attachment_uuids": f"Duration must be <= {max_duration}s"})
 
     def create(self, validated_data):
         chat = self.context["chat"]
@@ -303,7 +310,6 @@ class MessageUpdateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Nothing to update")
 
         normalized_text = (attrs.get("text", message.text) or "").strip()
-
         if message.message_type == Message.MessageType.TEXT and not normalized_text:
             raise serializers.ValidationError({"text": "Text cannot be empty for text messages"})
 

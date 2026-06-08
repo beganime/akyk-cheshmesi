@@ -23,6 +23,17 @@ env = environ.Env(
     REDIS_HISTORY_TTL_SECONDS=(int, 604800),
     REDIS_PRESENCE_TTL_SECONDS=(int, 90),
     MEDIA_MAX_UPLOAD_SIZE_BYTES=(int, 26214400),
+    MAX_UPLOAD_SIZE_MB=(int, 25),
+    IMAGE_MAX_WIDTH=(int, 1920),
+    IMAGE_MAX_HEIGHT=(int, 1920),
+    IMAGE_THUMBNAIL_SIZE=(int, 480),
+    IMAGE_UPLOAD_QUALITY=(int, 82),
+    VIDEO_MAX_SIZE_MB=(int, 100),
+    VIDEO_NOTE_MAX_SIZE_MB=(int, 50),
+    VIDEO_NOTE_MAX_DURATION_SECONDS=(int, 60),
+    AUDIO_MAX_SIZE_MB=(int, 25),
+    AUDIO_MAX_DURATION_SECONDS=(int, 300),
+    STORY_TTL_HOURS=(int, 24),
     SECURE_COOKIES=(bool, False),
     ENABLE_SECURITY_HEADERS=(bool, True),
     AUTH_EMAILS_ASYNC=(bool, True),
@@ -74,6 +85,7 @@ INSTALLED_APPS = [
     "apps.chats.apps.ChatsConfig",
     "apps.messaging.apps.MessagingConfig",
     "apps.calls.apps.CallsConfig",
+    "apps.stories.apps.StoriesConfig",
     "apps.mediafiles.apps.MediaFilesConfig",
     "apps.stickers.apps.StickersConfig",
     "apps.complaints.apps.ComplaintsConfig",
@@ -146,7 +158,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "ru-ru"
-TIME_ZONE = "Asia/Bangkok"
+TIME_ZONE = env("DJANGO_TIME_ZONE", default="Asia/Ashgabat")
 USE_I18N = True
 USE_TZ = True
 
@@ -157,7 +169,21 @@ MEDIA_URL = env("MEDIA_URL", default="/media/")
 MEDIA_ROOT = Path(env("MEDIA_ROOT", default=str(PROJECT_ROOT / "var" / "media")))
 PUBLIC_MEDIA_BASE_URL = env("PUBLIC_MEDIA_BASE_URL", default="").rstrip("/")
 
-MEDIA_MAX_UPLOAD_SIZE_BYTES = env.int("MEDIA_MAX_UPLOAD_SIZE_BYTES", default=26214400)
+MAX_UPLOAD_SIZE_MB = env.int("MAX_UPLOAD_SIZE_MB", default=25)
+MEDIA_MAX_UPLOAD_SIZE_BYTES = env.int(
+    "MEDIA_MAX_UPLOAD_SIZE_BYTES",
+    default=MAX_UPLOAD_SIZE_MB * 1024 * 1024,
+)
+IMAGE_MAX_WIDTH = env.int("IMAGE_MAX_WIDTH", default=1920)
+IMAGE_MAX_HEIGHT = env.int("IMAGE_MAX_HEIGHT", default=1920)
+IMAGE_THUMBNAIL_SIZE = env.int("IMAGE_THUMBNAIL_SIZE", default=480)
+IMAGE_UPLOAD_QUALITY = env.int("IMAGE_UPLOAD_QUALITY", default=82)
+VIDEO_MAX_SIZE_MB = env.int("VIDEO_MAX_SIZE_MB", default=100)
+VIDEO_NOTE_MAX_SIZE_MB = env.int("VIDEO_NOTE_MAX_SIZE_MB", default=50)
+VIDEO_NOTE_MAX_DURATION_SECONDS = env.int("VIDEO_NOTE_MAX_DURATION_SECONDS", default=60)
+AUDIO_MAX_SIZE_MB = env.int("AUDIO_MAX_SIZE_MB", default=25)
+AUDIO_MAX_DURATION_SECONDS = env.int("AUDIO_MAX_DURATION_SECONDS", default=300)
+STORY_TTL_HOURS = env.int("STORY_TTL_HOURS", default=24)
 MEDIA_ALLOWED_CONTENT_TYPES = env.list(
     "MEDIA_ALLOWED_CONTENT_TYPES",
     default=[
@@ -172,6 +198,7 @@ MEDIA_ALLOWED_CONTENT_TYPES = env.list(
         "audio/wav",
         "audio/x-wav",
         "audio/mp4",
+        "audio/aac",
         "audio/webm",
         "audio/ogg",
         "application/pdf",
@@ -224,6 +251,8 @@ REST_FRAMEWORK = {
         "call_create": "30/hour",
         "call_action": "240/hour",
         "call_history": "240/hour",
+        "stories": "240/hour",
+        "stories_create": "60/hour",
     },
 }
 

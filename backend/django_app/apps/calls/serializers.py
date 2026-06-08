@@ -5,7 +5,7 @@ from rest_framework import serializers
 from apps.chats.models import Chat, ChatMember
 from apps.users.public_serializers import UserShortSerializer
 
-from .models import CallEvent, CallParticipant, CallSession
+from .models import CallEvent, CallLog, CallParticipant, CallSession, CallSignal
 from .services import ACTIVE_CALL_STATUSES, create_call_event
 
 
@@ -43,6 +43,39 @@ class CallEventSerializer(serializers.ModelSerializer):
             "payload",
             "created_at",
             "actor",
+        )
+
+
+class CallSignalSerializer(serializers.ModelSerializer):
+    sender = UserShortSerializer(read_only=True)
+    target_user = UserShortSerializer(read_only=True)
+
+    class Meta:
+        model = CallSignal
+        fields = (
+            "uuid",
+            "signal_type",
+            "payload",
+            "sender",
+            "target_user",
+            "created_at",
+        )
+
+
+class CallLogSerializer(serializers.ModelSerializer):
+    actor = UserShortSerializer(read_only=True)
+
+    class Meta:
+        model = CallLog
+        fields = (
+            "uuid",
+            "action",
+            "status_from",
+            "status_to",
+            "duration_seconds",
+            "payload",
+            "actor",
+            "created_at",
         )
 
 
@@ -84,9 +117,11 @@ class CallSessionListSerializer(serializers.ModelSerializer):
 
 class CallSessionDetailSerializer(CallSessionListSerializer):
     events = CallEventSerializer(many=True, read_only=True)
+    signals = CallSignalSerializer(many=True, read_only=True)
+    logs = CallLogSerializer(many=True, read_only=True)
 
     class Meta(CallSessionListSerializer.Meta):
-        fields = CallSessionListSerializer.Meta.fields + ("events",)
+        fields = CallSessionListSerializer.Meta.fields + ("events", "signals", "logs")
 
 
 class CallCreateSerializer(serializers.Serializer):
@@ -171,7 +206,7 @@ class CallCreateSerializer(serializers.Serializer):
 
             create_call_event(
                 session=session,
-                event_type="call_invite",
+                event_type="call:invite",
                 actor=request.user,
                 payload={
                     "initiated_by_uuid": str(request.user.uuid),
@@ -189,3 +224,29 @@ class CallActionSerializer(serializers.Serializer):
     device_id = serializers.CharField(required=False, allow_blank=True, max_length=128)
     device_platform = serializers.CharField(required=False, allow_blank=True, max_length=32)
     device_name = serializers.CharField(required=False, allow_blank=True, max_length=128)
+
+
+class CallSignalCreateSerializer(serializers.Serializer):
+    signal_type = serializers.ChoiceField(choices=CallSignal.SignalType.choices)
+    payload = serializers.JSONField(required=False)
+    target_user_uuid = serializers.UUIDField(required=False)
+
+    def validate(self, attrs):
+        session = self.context["session"]
+        request = self.context["request"]
+
+        if not session.participants.filter(user=request.user).exists():
+            raise serializers.ValidationError("You are not a participant of this call")
+
+        target_uuid = attrs.get("target_user_uuid")
+        if target_uuid:
+            participant = session.participants.select_related("user").filter(user__uuid=target_uuid).first()
+            if not participant:
+                raise serializers.ValidationError({"target_user_uuid": "Target user is not a call participant"})
+            attrs["target_user"] = participant.user
+
+        payload = attrs.get("payload") or {}
+        if not isinstance(payload, dict):
+            raise serializers.ValidationError({"payload": "Payload must be a JSON object"})
+        attrs["payload"] = payload
+        return attrs

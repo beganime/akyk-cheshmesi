@@ -14,6 +14,7 @@ type Config struct {
 	AppEnv                  string
 	HTTPHost                string
 	HTTPPort                string
+	AllowedOrigins          []string
 	JWTSecret               string
 	RedisCacheURL           string
 	RedisStreamURL          string
@@ -41,21 +42,22 @@ func Load() Config {
 	loadDotEnv()
 
 	cfg := Config{
-		AppEnv:                   getEnv("GO_ENV", "development"),
-		HTTPHost:                 getEnv("GO_HTTP_HOST", "0.0.0.0"),
-		HTTPPort:                 getEnv("GO_HTTP_PORT", "8081"),
-		JWTSecret:                getEnv("GO_JWT_SECRET", getEnv("JWT_SECRET", "")),
-		RedisCacheURL:            firstNonEmpty("GO_REDIS_CACHE_URL", "GO_REDIS_URL", "REDIS_CACHE_URL", "redis://127.0.0.1:6379/0"),
-		RedisStreamURL:           firstNonEmpty("GO_REDIS_STREAM_URL", "REDIS_STREAM_URL", "", "redis://127.0.0.1:6379/1"),
-		StreamMessagesKey:        getEnv("REDIS_STREAM_MESSAGES_KEY", "stream:messages"),
-		StreamMessageStatusKey:   getEnv("REDIS_STREAM_MESSAGE_STATUS_KEY", "stream:message-statuses"),
-		RealtimeEventsChannel:    getEnv("REDIS_REALTIME_EVENTS_CHANNEL", "realtime:events"),
-		PresenceTTLSeconds:       getEnvInt("REDIS_PRESENCE_TTL_SECONDS", 90),
-		WebSocketReadLimit:       getEnvInt64("GO_WS_READ_LIMIT", 8192),
-		WebSocketWriteBuffer:     getEnvInt("GO_WS_WRITE_BUFFER", 256),
-		RateLimitMessagesPer10s:  getEnvInt("GO_RATE_LIMIT_MESSAGES_PER_10S", 12),
-		RateLimitTypingPer10s:    getEnvInt("GO_RATE_LIMIT_TYPING_PER_10S", 30),
-		RateLimitStatusesPer10s:  getEnvInt("GO_RATE_LIMIT_STATUSES_PER_10S", 40),
+		AppEnv:                  getEnv("GO_ENV", "development"),
+		HTTPHost:                getEnv("GO_HTTP_HOST", "0.0.0.0"),
+		HTTPPort:                getEnv("GO_HTTP_PORT", "8081"),
+		AllowedOrigins:          getEnvCSV("GO_ALLOWED_ORIGINS", nil),
+		JWTSecret:               getEnv("GO_JWT_SECRET", getEnv("JWT_SECRET", "")),
+		RedisCacheURL:           firstNonEmpty("GO_REDIS_CACHE_URL", "GO_REDIS_URL", "REDIS_CACHE_URL", "redis://127.0.0.1:6379/0"),
+		RedisStreamURL:          firstNonEmpty("GO_REDIS_STREAM_URL", "REDIS_STREAM_URL", "", "redis://127.0.0.1:6379/1"),
+		StreamMessagesKey:       getEnv("REDIS_STREAM_MESSAGES_KEY", "stream:messages"),
+		StreamMessageStatusKey:  getEnv("REDIS_STREAM_MESSAGE_STATUS_KEY", "stream:message-statuses"),
+		RealtimeEventsChannel:   getEnv("REDIS_REALTIME_EVENTS_CHANNEL", "realtime:events"),
+		PresenceTTLSeconds:      getEnvInt("REDIS_PRESENCE_TTL_SECONDS", 90),
+		WebSocketReadLimit:      getEnvInt64("GO_WS_READ_LIMIT", 8192),
+		WebSocketWriteBuffer:    getEnvInt("GO_WS_WRITE_BUFFER", 256),
+		RateLimitMessagesPer10s: getEnvInt("GO_RATE_LIMIT_MESSAGES_PER_10S", 12),
+		RateLimitTypingPer10s:   getEnvInt("GO_RATE_LIMIT_TYPING_PER_10S", 30),
+		RateLimitStatusesPer10s: getEnvInt("GO_RATE_LIMIT_STATUSES_PER_10S", 40),
 
 		CallSTUNURLs:               getEnvCSV("GO_CALL_STUN_URLS", []string{"stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"}),
 		CallTURNURLs:               getEnvCSV("GO_CALL_TURN_URLS", nil),
@@ -107,6 +109,21 @@ func loadDotEnv() {
 
 func (c Config) Addr() string {
 	return c.HTTPHost + ":" + c.HTTPPort
+}
+
+func (c Config) IsAllowedOrigin(origin string, host string) bool {
+	if origin == "" {
+		return true
+	}
+	if len(c.AllowedOrigins) == 0 {
+		return c.AppEnv != "production"
+	}
+	for _, allowed := range c.AllowedOrigins {
+		if allowed == "*" || strings.EqualFold(strings.TrimRight(allowed, "/"), strings.TrimRight(origin, "/")) {
+			return true
+		}
+	}
+	return false
 }
 
 func getEnv(key string, fallback string) string {

@@ -268,6 +268,16 @@ class MessageStatusStreamSaver:
                         "delivered_at": (receipt.delivered_at or now).isoformat(),
                     },
                 )
+                publish_realtime_event(
+                    "message:delivered",
+                    str(message.chat.uuid),
+                    {
+                        "message_uuid": str(message.uuid),
+                        "chat_uuid": str(message.chat.uuid),
+                        "user_uuid": str(user.uuid),
+                        "delivered_at": (receipt.delivered_at or now).isoformat(),
+                    },
+                )
 
                 return StatusProcessResult(
                     entry_id=entry_id,
@@ -293,6 +303,17 @@ class MessageStatusStreamSaver:
 
             publish_realtime_event(
                 "message_read",
+                str(message.chat.uuid),
+                {
+                    "message_uuid": str(message.uuid),
+                    "chat_uuid": str(message.chat.uuid),
+                    "user_uuid": str(user.uuid),
+                    "read_at": (receipt.read_at or now).isoformat(),
+                    "delivered_at": (receipt.delivered_at or now).isoformat(),
+                },
+            )
+            publish_realtime_event(
+                "message:read",
                 str(message.chat.uuid),
                 {
                     "message_uuid": str(message.uuid),

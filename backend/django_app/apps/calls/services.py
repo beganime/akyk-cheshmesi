@@ -5,7 +5,7 @@ import redis
 from django.conf import settings
 from django.utils import timezone
 
-from .models import CallEvent, CallParticipant, CallSession
+from .models import CallEvent, CallLog, CallParticipant, CallSession, CallSignal
 
 
 ACTIVE_CALL_STATUSES = {
@@ -67,6 +67,14 @@ def create_call_event(
         event_type=event_type,
         payload=payload,
     )
+    CallLog.objects.create(
+        session=session,
+        actor=actor,
+        action=event_type,
+        status_to=session.status,
+        duration_seconds=session.duration_seconds,
+        payload=payload,
+    )
 
     if publish:
         publish_payload = {
@@ -86,15 +94,60 @@ def create_call_event(
     return event
 
 
+def create_call_signal(
+    *,
+    session: CallSession,
+    sender,
+    signal_type: str,
+    payload: dict[str, Any] | None = None,
+    target_user=None,
+    publish: bool = True,
+) -> CallSignal:
+    payload = payload or {}
+    signal = CallSignal.objects.create(
+        session=session,
+        sender=sender,
+        target_user=target_user,
+        signal_type=signal_type,
+        payload=payload,
+    )
+
+    if publish:
+        publish_chat_realtime_event(
+            session.chat.uuid,
+            f"call:{signal_type}",
+            {
+                "call_uuid": str(session.uuid),
+                "chat_uuid": str(session.chat.uuid),
+                "room_key": session.room_key,
+                "sender_uuid": str(sender.uuid),
+                "target_user_uuid": str(target_user.uuid) if target_user else "",
+                "signal_type": signal_type,
+                **payload,
+            },
+        )
+
+    return signal
+
+
 def finalize_call_session(session: CallSession, status: str) -> CallSession:
     now = timezone.now()
     base_time = session.answered_at or session.created_at
     duration_seconds = max(int((now - base_time).total_seconds()), 0)
 
+    previous_status = session.status
     session.status = status
     session.ended_at = now
     session.duration_seconds = duration_seconds
     session.save(update_fields=["status", "ended_at", "duration_seconds", "updated_at"])
+    CallLog.objects.create(
+        session=session,
+        action="call_status_changed",
+        status_from=previous_status,
+        status_to=status,
+        duration_seconds=duration_seconds,
+        payload={},
+    )
     return session
 
 

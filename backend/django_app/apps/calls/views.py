@@ -12,10 +12,11 @@ from .models import CallParticipant, CallSession
 from .serializers import (
     CallActionSerializer,
     CallCreateSerializer,
+    CallSignalCreateSerializer,
     CallSessionDetailSerializer,
     CallSessionListSerializer,
 )
-from .services import create_call_event, finalize_call_session, finalize_participant_if_joined
+from .services import create_call_event, create_call_signal, finalize_call_session, finalize_participant_if_joined
 
 
 def call_queryset_for_user(user):
@@ -28,6 +29,9 @@ def call_queryset_for_user(user):
                 queryset=CallParticipant.objects.select_related("user").order_by("created_at"),
             ),
             "events__actor",
+            "signals__sender",
+            "signals__target_user",
+            "logs__actor",
         )
         .distinct()
         .order_by("-created_at")
@@ -156,7 +160,7 @@ class CallAcceptAPIView(BaseCallActionAPIView):
 
             create_call_event(
                 session=session,
-                event_type="call_accepted",
+                event_type="call:accept",
                 actor=request.user,
                 payload={
                     "user_uuid": str(request.user.uuid),
@@ -207,11 +211,11 @@ class CallRejectAPIView(BaseCallActionAPIView):
             ).exists()
 
             if not other_joined_exists and not other_ringing_exists:
-                session = finalize_call_session(session, CallSession.Status.REJECTED)
+                session = finalize_call_session(session, CallSession.Status.DECLINED)
 
             create_call_event(
                 session=session,
-                event_type="call_rejected",
+                event_type="call:decline",
                 actor=request.user,
                 payload={
                     "user_uuid": str(request.user.uuid),
@@ -262,7 +266,7 @@ class CallCancelAPIView(BaseCallActionAPIView):
 
             create_call_event(
                 session=session,
-                event_type="call_canceled",
+                event_type="call:end",
                 actor=request.user,
                 payload={
                     "user_uuid": str(request.user.uuid),
@@ -317,7 +321,7 @@ class CallEndAPIView(BaseCallActionAPIView):
 
             create_call_event(
                 session=session,
-                event_type="call_ended",
+                event_type="call:end",
                 actor=request.user,
                 payload={
                     "user_uuid": str(request.user.uuid),
@@ -328,3 +332,66 @@ class CallEndAPIView(BaseCallActionAPIView):
 
         output = CallSessionDetailSerializer(session, context={"request": request})
         return Response(output.data, status=status.HTTP_200_OK)
+
+
+class CallMissedAPIView(BaseCallActionAPIView):
+    def post(self, request, call_uuid):
+        with transaction.atomic():
+            session = self.get_session(request, call_uuid)
+            participant = self.get_participant(session, request.user)
+
+            if participant.status not in {
+                CallParticipant.Status.INVITED,
+                CallParticipant.Status.RINGING,
+            }:
+                return Response(
+                    {"detail": "Only ringing participant can be marked as missed"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            participant.status = CallParticipant.Status.MISSED
+            participant.left_at = timezone.now()
+            participant.save(update_fields=["status", "left_at", "updated_at"])
+
+            if not session.participants.filter(
+                status__in=[
+                    CallParticipant.Status.INVITED,
+                    CallParticipant.Status.RINGING,
+                    CallParticipant.Status.JOINED,
+                ]
+            ).exists():
+                session = finalize_call_session(session, CallSession.Status.MISSED)
+
+            create_call_event(
+                session=session,
+                event_type="call:missed",
+                actor=request.user,
+                payload={
+                    "user_uuid": str(request.user.uuid),
+                    "username": request.user.username or "",
+                },
+                publish=True,
+            )
+
+        output = CallSessionDetailSerializer(session, context={"request": request})
+        return Response(output.data, status=status.HTTP_200_OK)
+
+
+class CallSignalCreateAPIView(BaseCallActionAPIView):
+    def post(self, request, call_uuid):
+        session = self.get_session(request, call_uuid)
+        serializer = CallSignalCreateSerializer(
+            data=request.data,
+            context={"request": request, "session": session},
+        )
+        serializer.is_valid(raise_exception=True)
+        create_call_signal(
+            session=session,
+            sender=request.user,
+            target_user=serializer.validated_data.get("target_user"),
+            signal_type=serializer.validated_data["signal_type"],
+            payload=serializer.validated_data.get("payload") or {},
+            publish=True,
+        )
+        output = CallSessionDetailSerializer(session, context={"request": request})
+        return Response(output.data, status=status.HTTP_201_CREATED)

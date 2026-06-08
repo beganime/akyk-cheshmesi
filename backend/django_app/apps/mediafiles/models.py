@@ -26,9 +26,14 @@ class UploadedMedia(UUIDTimeStampedModel):
         related_name="uploaded_media",
     )
     file = models.FileField(upload_to="uploads/%Y/%m/%d/", null=True, blank=True)
+    thumbnail = models.ImageField(upload_to="uploads/thumbnails/%Y/%m/%d/", null=True, blank=True)
     original_name = models.CharField(max_length=255)
     content_type = models.CharField(max_length=120, blank=True)
     size = models.PositiveBigIntegerField(default=0)
+    duration_seconds = models.PositiveIntegerField(null=True, blank=True, db_index=True)
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+    waveform_data = models.JSONField(default=list, blank=True)
     media_kind = models.CharField(
         max_length=20,
         choices=MediaKind.choices,
@@ -52,6 +57,8 @@ class UploadedMedia(UUIDTimeStampedModel):
     checksum = models.CharField(max_length=128, blank=True)
     is_public = models.BooleanField(default=False)
     meta = models.JSONField(default=dict, blank=True)
+    processed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    processing_error = models.TextField(blank=True)
 
     class Meta:
         db_table = "uploaded_media"
@@ -60,6 +67,8 @@ class UploadedMedia(UUIDTimeStampedModel):
             models.Index(fields=["owner", "status"]),
             models.Index(fields=["owner", "media_kind"]),
             models.Index(fields=["object_key"]),
+            models.Index(fields=["media_kind", "duration_seconds"]),
+            models.Index(fields=["processed_at"]),
         ]
 
     def __str__(self) -> str:

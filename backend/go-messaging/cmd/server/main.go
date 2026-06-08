@@ -106,7 +106,7 @@ func serveWS(cfg config.Config, hub *ws.Hub) http.HandlerFunc {
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
-			return true
+			return cfg.IsAllowedOrigin(r.Header.Get("Origin"), r.Host)
 		},
 	}
 
@@ -160,7 +160,7 @@ func serveCallWS(
 		ReadBufferSize:  2048,
 		WriteBufferSize: 2048,
 		CheckOrigin: func(r *http.Request) bool {
-			return true
+			return cfg.IsAllowedOrigin(r.Header.Get("Origin"), r.Host)
 		},
 	}
 

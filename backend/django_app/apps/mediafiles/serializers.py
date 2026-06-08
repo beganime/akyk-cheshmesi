@@ -1,3 +1,5 @@
+import json
+
 from django.conf import settings
 from rest_framework import serializers
 
@@ -94,6 +96,7 @@ def get_uploaded_media_file_url(obj, request=None) -> str | None:
 
 class UploadedMediaSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = UploadedMedia
@@ -103,12 +106,19 @@ class UploadedMediaSerializer(serializers.ModelSerializer):
             "content_type",
             "size",
             "media_kind",
+            "duration_seconds",
+            "width",
+            "height",
+            "waveform_data",
             "storage_provider",
             "object_key",
             "status",
             "is_public",
             "file_url",
+            "thumbnail_url",
             "meta",
+            "processed_at",
+            "processing_error",
             "created_at",
             "updated_at",
         )
@@ -117,9 +127,19 @@ class UploadedMediaSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         return get_uploaded_media_file_url(obj, request=request)
 
+    def get_thumbnail_url(self, obj):
+        request = self.context.get("request")
+        if not obj.thumbnail:
+            return make_absolute_media_url((obj.meta or {}).get("thumbnail_url"), request=request)
+        try:
+            return make_absolute_media_url(obj.thumbnail.url, request=request)
+        except Exception:
+            return None
+
 
 class MediaAttachmentBriefSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = UploadedMedia
@@ -129,12 +149,27 @@ class MediaAttachmentBriefSerializer(serializers.ModelSerializer):
             "content_type",
             "size",
             "media_kind",
+            "duration_seconds",
+            "width",
+            "height",
+            "waveform_data",
             "file_url",
+            "thumbnail_url",
+            "meta",
         )
 
     def get_file_url(self, obj):
         request = self.context.get("request")
         return get_uploaded_media_file_url(obj, request=request)
+
+    def get_thumbnail_url(self, obj):
+        request = self.context.get("request")
+        if not obj.thumbnail:
+            return make_absolute_media_url((obj.meta or {}).get("thumbnail_url"), request=request)
+        try:
+            return make_absolute_media_url(obj.thumbnail.url, request=request)
+        except Exception:
+            return None
 
 
 class MediaPresignRequestSerializer(serializers.Serializer):
@@ -143,6 +178,12 @@ class MediaPresignRequestSerializer(serializers.Serializer):
     size = serializers.IntegerField(min_value=1)
     is_public = serializers.BooleanField(required=False, default=False)
     duration_seconds = serializers.IntegerField(required=False, min_value=1)
+    width = serializers.IntegerField(required=False, min_value=1)
+    height = serializers.IntegerField(required=False, min_value=1)
+    waveform_data = serializers.JSONField(required=False)
+
+    def validate_waveform_data(self, value):
+        return normalize_waveform_data(value)
 
 
 class MediaCompleteSerializer(serializers.Serializer):
@@ -153,6 +194,9 @@ class LocalMediaUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
     is_public = serializers.BooleanField(required=False, default=False)
     duration_seconds = serializers.IntegerField(required=False, min_value=1)
+    width = serializers.IntegerField(required=False, min_value=1)
+    height = serializers.IntegerField(required=False, min_value=1)
+    waveform_data = serializers.JSONField(required=False)
 
     def validate_file(self, value):
         if value.size <= 0:
@@ -163,3 +207,27 @@ class LocalMediaUploadSerializer(serializers.Serializer):
             raise serializers.ValidationError(f"File is too large. Max size is {max_size} bytes")
 
         return value
+
+    def validate_waveform_data(self, value):
+        return normalize_waveform_data(value)
+
+
+def normalize_waveform_data(value):
+    if value in (None, ""):
+        return []
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise serializers.ValidationError("waveform_data must be a JSON list") from exc
+    if not isinstance(value, list):
+        raise serializers.ValidationError("waveform_data must be a list")
+    if len(value) > 256:
+        raise serializers.ValidationError("waveform_data can contain up to 256 samples")
+    normalized = []
+    for sample in value:
+        try:
+            normalized.append(max(0, min(100, int(sample))))
+        except (TypeError, ValueError) as exc:
+            raise serializers.ValidationError("waveform_data samples must be integers") from exc
+    return normalized

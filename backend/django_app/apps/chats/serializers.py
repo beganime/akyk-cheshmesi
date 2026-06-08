@@ -32,6 +32,9 @@ class ChatMemberSerializer(serializers.ModelSerializer):
 
 
 class ChatListSerializer(serializers.ModelSerializer):
+    type = serializers.SerializerMethodField()
+    owner = serializers.SerializerMethodField()
+    admins = serializers.SerializerMethodField()
     peer_user = serializers.SerializerMethodField()
     display_title = serializers.SerializerMethodField()
     members = serializers.SerializerMethodField()
@@ -48,10 +51,13 @@ class ChatListSerializer(serializers.ModelSerializer):
         model = Chat
         fields = (
             "uuid",
+            "type",
             "chat_type",
             "title",
             "description",
             "avatar",
+            "owner",
+            "admins",
             "display_title",
             "peer_user",
             "members_count",
@@ -81,22 +87,45 @@ class ChatListSerializer(serializers.ModelSerializer):
 
         return obj.members.filter(user=request.user, is_active=True).first()
 
-    def get_members(self, obj):
+    def _get_active_members(self, obj):
         members = getattr(obj, "prefetched_active_members", None)
         if members is None:
             members = obj.members.filter(is_active=True).select_related("user")
-        return ChatMemberSerializer(members, many=True, context=self.context).data
+        return members
+
+    def get_type(self, obj):
+        return "private" if obj.chat_type == Chat.ChatType.DIRECT else "group"
+
+    def get_owner(self, obj):
+        owner = next(
+            (member.user for member in self._get_active_members(obj) if member.role == ChatMember.Role.OWNER),
+            None,
+        )
+        return UserShortSerializer(owner, context=self.context).data if owner else None
+
+    def get_admins(self, obj):
+        if obj.chat_type != Chat.ChatType.GROUP:
+            return []
+        admins = [
+            member.user
+            for member in self._get_active_members(obj)
+            if member.role in {ChatMember.Role.OWNER, ChatMember.Role.ADMIN}
+        ]
+        return UserShortSerializer(admins, many=True, context=self.context).data
+
+    def get_members(self, obj):
+        return ChatMemberSerializer(
+            self._get_active_members(obj),
+            many=True,
+            context=self.context,
+        ).data
 
     def get_peer_user(self, obj):
         request = self.context.get("request")
         if not request or obj.chat_type != Chat.ChatType.DIRECT:
             return None
 
-        members = getattr(obj, "prefetched_active_members", None)
-        if members is None:
-            members = obj.members.filter(is_active=True).select_related("user")
-
-        for member in members:
+        for member in self._get_active_members(obj):
             if member.user_id != request.user.id:
                 return UserShortSerializer(member.user, context=self.context).data
         return None
@@ -119,15 +148,15 @@ class ChatListSerializer(serializers.ModelSerializer):
 
         message_type = getattr(obj, "last_message_type", "text") or "text"
         text = getattr(obj, "last_message_text", "") or ""
-
         preview = text
         if not preview:
             preview_map = {
-                "image": "📷 Photo",
-                "video": "🎬 Video",
-                "audio": "🎤 Audio",
-                "file": "📎 File",
-                "sticker": "😀 Sticker",
+                "image": "Photo",
+                "video": "Video",
+                "audio": "Audio",
+                "video_note": "Video note",
+                "file": "File",
+                "sticker": "Sticker",
                 "system": "System message",
             }
             preview = preview_map.get(message_type, "Message")
@@ -204,7 +233,6 @@ class DirectChatCreateSerializer(serializers.Serializer):
 
     def validate_peer_uuid(self, value):
         request = self.context["request"]
-
         if str(value) == str(request.user.uuid):
             raise serializers.ValidationError("You cannot create a direct chat with yourself")
 
@@ -225,12 +253,10 @@ class DirectChatCreateSerializer(serializers.Serializer):
         request = self.context["request"]
         current_user = request.user
         peer_user = self.peer_user
-
         direct_key = build_direct_chat_key(current_user.uuid, peer_user.uuid)
 
         with transaction.atomic():
             chat = Chat.objects.select_for_update().filter(direct_key=direct_key).first()
-
             if not chat:
                 chat = Chat.objects.create(
                     chat_type=Chat.ChatType.DIRECT,
@@ -290,7 +316,6 @@ class GroupChatCreateSerializer(serializers.Serializer):
 
         found_uuids = {str(user.uuid) for user in users}
         requested_uuids = {str(value) for value in member_uuids}
-
         missing = requested_uuids - found_uuids
         if missing:
             raise serializers.ValidationError(
@@ -325,7 +350,6 @@ class GroupChatCreateSerializer(serializers.Serializer):
 
             created_user_ids = {current_user.id}
             bulk_members = []
-
             for user in self.group_members:
                 if user.id in created_user_ids:
                     continue
@@ -347,6 +371,114 @@ class GroupChatCreateSerializer(serializers.Serializer):
             chat.save(update_fields=["members_count", "updated_at"])
 
         return chat
+
+
+class ChatCreateSerializer(serializers.Serializer):
+    type = serializers.ChoiceField(choices=[("private", "Private"), ("group", "Group")])
+    peer_uuid = serializers.UUIDField(required=False)
+    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True)
+    member_uuids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        allow_empty=True,
+    )
+
+    def validate(self, attrs):
+        if attrs["type"] == "private" and not attrs.get("peer_uuid"):
+            raise serializers.ValidationError({"peer_uuid": "Private chat requires peer_uuid"})
+        if attrs["type"] == "group" and not (attrs.get("title") or "").strip():
+            raise serializers.ValidationError({"title": "Group chat requires title"})
+        return attrs
+
+    def create(self, validated_data):
+        if validated_data["type"] == "private":
+            serializer = DirectChatCreateSerializer(
+                data={"peer_uuid": validated_data["peer_uuid"]},
+                context=self.context,
+            )
+        else:
+            serializer = GroupChatCreateSerializer(
+                data={
+                    "title": validated_data.get("title", ""),
+                    "description": validated_data.get("description", ""),
+                    "member_uuids": validated_data.get("member_uuids", []),
+                },
+                context=self.context,
+            )
+        serializer.is_valid(raise_exception=True)
+        return serializer.save()
+
+
+class ChatUpdateSerializer(serializers.Serializer):
+    title = serializers.CharField(required=False, allow_blank=False, max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True)
+    avatar = serializers.ImageField(required=False, allow_null=True)
+
+    def validate(self, attrs):
+        chat = self.context["chat"]
+        request = self.context["request"]
+        if chat.chat_type != Chat.ChatType.GROUP:
+            raise serializers.ValidationError("Only group chats can be updated")
+
+        membership = chat.members.filter(user=request.user, is_active=True).first()
+        if not membership or membership.role not in {ChatMember.Role.OWNER, ChatMember.Role.ADMIN}:
+            raise serializers.ValidationError("Only group admins can update group info")
+
+        if not attrs:
+            raise serializers.ValidationError("Nothing to update")
+        return attrs
+
+    def save(self, **kwargs):
+        chat = self.context["chat"]
+        changed = []
+        for field in ("title", "description", "avatar"):
+            if field in self.validated_data:
+                setattr(chat, field, self.validated_data[field])
+                changed.append(field)
+        if changed:
+            changed.append("updated_at")
+            chat.save(update_fields=changed)
+        return chat
+
+
+class GroupMembersSerializer(serializers.Serializer):
+    member_uuids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        allow_empty=False,
+    )
+    user_uuid = serializers.UUIDField(required=False)
+
+    def validate(self, attrs):
+        member_uuids = list(attrs.get("member_uuids") or [])
+        if attrs.get("user_uuid"):
+            member_uuids.append(attrs["user_uuid"])
+        if not member_uuids:
+            raise serializers.ValidationError("At least one user_uuid/member_uuids value is required")
+
+        users = list(
+            User.objects.filter(
+                uuid__in=member_uuids,
+                is_active=True,
+                is_email_verified=True,
+                registration_completed=True,
+            )
+        )
+        found_uuids = {str(user.uuid) for user in users}
+        requested_uuids = {str(value) for value in member_uuids}
+        missing = requested_uuids - found_uuids
+        if missing:
+            raise serializers.ValidationError(
+                {"member_uuids": f"Some users were not found: {', '.join(sorted(missing))}"}
+            )
+
+        attrs["users"] = users
+        return attrs
+
+
+class GroupAdminsSerializer(GroupMembersSerializer):
+    pass
 
 
 class ChatReadSerializer(serializers.Serializer):

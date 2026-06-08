@@ -106,7 +106,7 @@ func (h *SignalingHandler) Handle(readLimit int64) {
 			continue
 		}
 
-		switch strings.TrimSpace(sig.Type) {
+		switch normalizeSignalType(strings.TrimSpace(sig.Type)) {
 		case "ping":
 			h.send(Signal{
 				Type: "pong",
@@ -226,6 +226,19 @@ func (h *SignalingHandler) Handle(readLimit int64) {
 		default:
 			h.sendError("unsupported signaling type")
 		}
+	}
+}
+
+func normalizeSignalType(signalType string) string {
+	switch signalType {
+	case "call:offer":
+		return "call_offer"
+	case "call:answer":
+		return "call_answer"
+	case "call:ice-candidate":
+		return "call_ice"
+	default:
+		return signalType
 	}
 }
 

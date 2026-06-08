@@ -404,6 +404,23 @@ class MessageStreamSaver:
                 "persisted_at": message.created_at.isoformat(),
             },
         )
+        publish_realtime_event(
+            "message:new",
+            str(message.chat.uuid),
+            {
+                "message": message_payload,
+                "message_uuid": str(message.uuid),
+                "chat_uuid": str(message.chat.uuid),
+                "sender_uuid": str(message.sender.uuid),
+                "client_uuid": client_uuid or "",
+                "message_type": message.message_type,
+                "text": message.text or "",
+                "attachments": message_payload.get("attachments", []),
+                "stream_entry_id": entry_id,
+                "persisted_status": persisted_status,
+                "persisted_at": message.created_at.isoformat(),
+            },
+        )
 
     def _process_entry(self, entry_id: str, fields: dict[str, Any]) -> ProcessResult:
         payload = self._parse_payload(fields)

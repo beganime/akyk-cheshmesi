@@ -15,6 +15,7 @@ class Message(UUIDTimeStampedModel):
         VIDEO = "video", "Video"
         FILE = "file", "File"
         AUDIO = "audio", "Audio"
+        VIDEO_NOTE = "video_note", "Video note"
 
     chat = models.ForeignKey(
         "chats.Chat",

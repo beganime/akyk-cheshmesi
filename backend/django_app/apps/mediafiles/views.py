@@ -10,6 +10,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from .models import UploadedMedia
+from .processors import create_video_thumbnail, make_thumbnail_object_key, process_image_upload
 from .serializers import (
     LocalMediaUploadSerializer,
     MediaCompleteSerializer,
@@ -18,19 +19,19 @@ from .serializers import (
 )
 from .validators import validate_upload_input
 
-VIDEO_MAX_DURATION_SECONDS = 30
-AUDIO_MAX_DURATION_SECONDS = 300
-
-
 def validate_media_duration(media_kind: str, duration_seconds: int | None):
     if duration_seconds is None:
         return
 
-    if media_kind == UploadedMedia.MediaKind.VIDEO and duration_seconds > VIDEO_MAX_DURATION_SECONDS:
-        raise ValueError(f"Video duration exceeds {VIDEO_MAX_DURATION_SECONDS} seconds")
+    if media_kind == UploadedMedia.MediaKind.VIDEO:
+        max_duration = getattr(settings, "VIDEO_NOTE_MAX_DURATION_SECONDS", 60)
+        if duration_seconds > max_duration * 10:
+            raise ValueError(f"Video duration exceeds {max_duration * 10} seconds")
 
-    if media_kind == UploadedMedia.MediaKind.AUDIO and duration_seconds > AUDIO_MAX_DURATION_SECONDS:
-        raise ValueError(f"Audio duration exceeds {AUDIO_MAX_DURATION_SECONDS} seconds")
+    if media_kind == UploadedMedia.MediaKind.AUDIO:
+        max_duration = getattr(settings, "AUDIO_MAX_DURATION_SECONDS", 300)
+        if duration_seconds > max_duration:
+            raise ValueError(f"Audio duration exceeds {max_duration} seconds")
 
 
 def build_s3_client():
@@ -112,6 +113,9 @@ class MediaPresignAPIView(generics.GenericAPIView):
         size = serializer.validated_data["size"]
         is_public = serializer.validated_data.get("is_public", False)
         duration_seconds = serializer.validated_data.get("duration_seconds")
+        width = serializer.validated_data.get("width")
+        height = serializer.validated_data.get("height")
+        waveform_data = serializer.validated_data.get("waveform_data") or []
 
         try:
             validated = validate_upload_input(filename, content_type, size)
@@ -132,7 +136,16 @@ class MediaPresignAPIView(generics.GenericAPIView):
             bucket_name=settings.AWS_STORAGE_BUCKET_NAME,
             status=UploadedMedia.Status.PENDING,
             is_public=is_public,
-            meta={"duration_seconds": duration_seconds} if duration_seconds else {},
+            duration_seconds=duration_seconds,
+            width=width,
+            height=height,
+            waveform_data=waveform_data,
+            meta={
+                "duration_seconds": duration_seconds,
+                "width": width,
+                "height": height,
+                "waveform_data": waveform_data,
+            },
         )
 
         s3_client = build_s3_client()
@@ -243,6 +256,9 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
         file_obj = serializer.validated_data["file"]
         is_public = serializer.validated_data.get("is_public", False)
         duration_seconds = serializer.validated_data.get("duration_seconds")
+        width = serializer.validated_data.get("width")
+        height = serializer.validated_data.get("height")
+        waveform_data = serializer.validated_data.get("waveform_data") or []
 
         try:
             validated = validate_upload_input(
@@ -254,22 +270,59 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        object_key = build_media_object_key(str(request.user.uuid), file_obj.name)
-        saved_name = default_storage.save(object_key, file_obj)
+        processed_image = None
+        if validated.media_kind == UploadedMedia.MediaKind.IMAGE:
+            try:
+                processed_image = process_image_upload(file_obj)
+            except Exception as exc:
+                return Response({"detail": f"Image processing failed: {exc}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if processed_image:
+            object_key = build_media_object_key(str(request.user.uuid), processed_image.filename)
+            saved_name = default_storage.save(object_key, processed_image.file)
+            thumbnail_key = make_thumbnail_object_key(str(request.user.uuid), processed_image.thumbnail_filename)
+            saved_thumbnail = default_storage.save(thumbnail_key, processed_image.thumbnail)
+            file_size = processed_image.size
+            content_type = processed_image.content_type
+            width = processed_image.width
+            height = processed_image.height
+            original_name = processed_image.filename
+        else:
+            file_obj.seek(0)
+            object_key = build_media_object_key(str(request.user.uuid), file_obj.name)
+            saved_name = default_storage.save(object_key, file_obj)
+            saved_thumbnail = ""
+            file_size = validated.size
+            content_type = validated.content_type
+            original_name = file_obj.name
 
         media = UploadedMedia.objects.create(
             owner=request.user,
-            original_name=file_obj.name,
-            content_type=validated.content_type,
-            size=validated.size,
+            original_name=original_name,
+            content_type=content_type,
+            size=file_size,
             media_kind=validated.media_kind,
             storage_provider=UploadedMedia.StorageProvider.LOCAL,
             status=UploadedMedia.Status.UPLOADED,
             is_public=is_public,
             object_key=saved_name,
             file=saved_name,
-            meta={"duration_seconds": duration_seconds} if duration_seconds else {},
+            thumbnail=saved_thumbnail or None,
+            duration_seconds=duration_seconds,
+            width=width,
+            height=height,
+            waveform_data=waveform_data,
+            meta={
+                "duration_seconds": duration_seconds,
+                "width": width,
+                "height": height,
+                "waveform_data": waveform_data,
+                "optimized": bool(processed_image),
+            },
         )
+
+        if media.media_kind == UploadedMedia.MediaKind.VIDEO and not media.thumbnail:
+            create_video_thumbnail(media)
 
         return Response(
             UploadedMediaSerializer(media, context={"request": request}).data,

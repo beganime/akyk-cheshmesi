@@ -1,7 +1,7 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin, TabularInline
 
-from .models import CallEvent, CallParticipant, CallSession
+from .models import CallEvent, CallLog, CallParticipant, CallSession, CallSignal
 
 
 class CallParticipantInline(TabularInline):
@@ -40,6 +40,34 @@ class CallEventInline(TabularInline):
     autocomplete_fields = ("actor",)
     readonly_fields = ("uuid", "event_type", "actor", "payload", "created_at", "updated_at")
     fields = ("event_type", "actor", "payload", "created_at")
+    tab = True
+
+
+class CallSignalInline(TabularInline):
+    model = CallSignal
+    extra = 0
+    autocomplete_fields = ("sender", "target_user")
+    readonly_fields = ("uuid", "signal_type", "sender", "target_user", "payload", "created_at", "updated_at")
+    fields = ("signal_type", "sender", "target_user", "payload", "created_at")
+    tab = True
+
+
+class CallLogInline(TabularInline):
+    model = CallLog
+    extra = 0
+    autocomplete_fields = ("actor",)
+    readonly_fields = (
+        "uuid",
+        "action",
+        "actor",
+        "status_from",
+        "status_to",
+        "duration_seconds",
+        "payload",
+        "created_at",
+        "updated_at",
+    )
+    fields = ("action", "actor", "status_from", "status_to", "duration_seconds", "payload", "created_at")
     tab = True
 
 
@@ -83,7 +111,7 @@ class CallSessionAdmin(ModelAdmin):
         "created_at",
         "updated_at",
     )
-    inlines = [CallParticipantInline, CallEventInline]
+    inlines = [CallParticipantInline, CallEventInline, CallSignalInline, CallLogInline]
 
 
 @admin.register(CallParticipant)
@@ -155,3 +183,21 @@ class CallEventAdmin(ModelAdmin):
         "created_at",
         "updated_at",
     )
+
+
+@admin.register(CallSignal)
+class CallSignalAdmin(ModelAdmin):
+    list_display = ("id", "session", "signal_type", "sender", "target_user", "created_at")
+    list_filter = ("signal_type", "created_at")
+    search_fields = ("session__uuid", "sender__email", "sender__username", "target_user__email", "target_user__username")
+    autocomplete_fields = ("session", "sender", "target_user")
+    readonly_fields = ("uuid", "created_at", "updated_at")
+
+
+@admin.register(CallLog)
+class CallLogAdmin(ModelAdmin):
+    list_display = ("id", "session", "action", "actor", "status_from", "status_to", "duration_seconds", "created_at")
+    list_filter = ("action", "status_to", "created_at")
+    search_fields = ("session__uuid", "actor__email", "actor__username", "action")
+    autocomplete_fields = ("session", "actor")
+    readonly_fields = ("uuid", "created_at", "updated_at")

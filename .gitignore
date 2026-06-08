@@ -1,12 +1,17 @@
 venv/
 .venv/
 .venv
+.venv-check/
+.pydeps/
 __pycache__/
 *.py[cod]
 *.sqlite3
 *.log
 .env
 .env.*
+!.env.example
+!env/
+!env/.env.prod.example
 .json*
 firebase-service-account.json
 *.swp
@@ -27,6 +32,8 @@ var/media/
 # Go
 backend/go-messaging/bin/
 backend/go-messaging/.air.toml
+.gocache/
+.gomodcache/
 
 # OS / misc
 Thumbs.db

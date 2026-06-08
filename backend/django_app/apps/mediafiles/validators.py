@@ -46,8 +46,18 @@ def validate_upload_input(filename: str, content_type: str, size: int) -> Valida
     if allowed and normalized_content_type not in allowed:
         raise ValueError(f"Unsupported content type: {normalized_content_type}")
 
+    media_kind = detect_media_kind(normalized_content_type)
+
+    if media_kind == "video":
+        max_size = getattr(settings, "VIDEO_MAX_SIZE_MB", 100) * 1024 * 1024
+    elif media_kind == "audio":
+        max_size = getattr(settings, "AUDIO_MAX_SIZE_MB", 25) * 1024 * 1024
+
+    if size > max_size:
+        raise ValueError(f"File is too large for {media_kind}. Max size is {max_size} bytes")
+
     return ValidatedMediaMeta(
         content_type=normalized_content_type,
-        media_kind=detect_media_kind(normalized_content_type),
+        media_kind=media_kind,
         size=size,
     )

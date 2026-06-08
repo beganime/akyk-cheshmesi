@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/v1/", include("apps.users.push_urls")),
     path("api/v1/", include("apps.chats.urls")),
     path("api/v1/", include("apps.calls.urls")),
+    path("api/v1/", include("apps.stories.urls")),
     path("api/v1/", include("apps.mediafiles.urls")),
     path("api/v1/", include("apps.stickers.urls")),
     path("api/v1/", include("apps.complaints.urls")),
@@ -20,6 +21,18 @@ urlpatterns = [
     path("api/v1/", include("apps.releases.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/common/", include("apps.common.urls")),
+    path("api/", include("apps.users.urls")),
+    path("api/", include("apps.users.push_urls")),
+    path("api/", include("apps.chats.urls")),
+    path("api/", include("apps.calls.urls")),
+    path("api/", include("apps.stories.urls")),
+    path("api/", include("apps.mediafiles.urls")),
+    path("api/", include("apps.stickers.urls")),
+    path("api/", include("apps.complaints.urls")),
+    path("api/", include("apps.knowledge_base.urls")),
+    path("api/", include("apps.bots.urls")),
+    path("api/", include("apps.releases.urls")),
 ]
 
 if settings.DEBUG:

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Messenger - Akyl Cheshmesi</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="messenger-body">
+  <main class="messenger-app">
+    <aside class="chat-sidebar" id="chatSidebar">
+      <div class="sidebar-head">
+        <button class="icon-button" id="menuToggle" aria-label="Меню">☰</button>
+        <div>
+          <strong>Chats</strong>
+          <span id="connectionState">offline</span>
+        </div>
+        <button class="icon-button" id="logoutButton" aria-label="Выйти">↪</button>
+      </div>
+      <label class="search-box">
+        <span>⌕</span>
+        <input id="chatSearch" type="search" placeholder="Поиск">
+      </label>
+      <div class="stories-strip" id="storiesStrip"></div>
+      <div class="chat-list" id="chatList"></div>
+    </aside>
+
+    <section class="chat-pane">
+      <header class="chat-header">
+        <button class="icon-button mobile-only" id="backToChats" aria-label="Назад">‹</button>
+        <div class="avatar" id="activeAvatar">A</div>
+        <div class="chat-title-block">
+          <strong id="activeChatTitle">Выберите чат</strong>
+          <span id="activeChatStatus">online status появится здесь</span>
+        </div>
+        <div class="chat-tools">
+          <button class="icon-button" id="audioCallButton" title="Аудио звонок">☎</button>
+          <button class="icon-button" id="videoCallButton" title="Видео звонок">◉</button>
+        </div>
+      </header>
+
+      <div class="messages" id="messages">
+        <div class="empty-state">
+          <h1>Akyl Cheshmesi</h1>
+          <p>Откройте чат слева, чтобы начать переписку.</p>
+        </div>
+      </div>
+
+      <form class="composer" id="messageForm">
+        <button class="icon-button" type="button" id="attachButton" title="Прикрепить файл">＋</button>
+        <input id="fileInput" type="file" hidden>
+        <input id="messageInput" autocomplete="off" placeholder="Сообщение">
+        <button class="icon-button" type="button" id="voiceButton" title="Аудио сообщение">♪</button>
+        <button class="icon-button" type="button" id="videoNoteButton" title="Видеокружочек">●</button>
+        <button class="send-button" type="submit" title="Отправить">➤</button>
+      </form>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

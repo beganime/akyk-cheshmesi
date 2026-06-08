@@ -15,6 +15,7 @@ class CallSession(UUIDTimeStampedModel):
         REQUESTED = "requested", "Requested"
         RINGING = "ringing", "Ringing"
         ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
         REJECTED = "rejected", "Rejected"
         CANCELED = "canceled", "Canceled"
         MISSED = "missed", "Missed"
@@ -146,6 +147,91 @@ class CallParticipant(UUIDTimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.user_id} in {self.session_id} [{self.status}]"
+
+
+class Call(CallSession):
+    class Meta:
+        proxy = True
+        verbose_name = "Call"
+        verbose_name_plural = "Calls"
+
+
+class CallSignal(UUIDTimeStampedModel):
+    class SignalType(models.TextChoices):
+        INVITE = "invite", "Invite"
+        ACCEPT = "accept", "Accept"
+        DECLINE = "decline", "Decline"
+        END = "end", "End"
+        MISSED = "missed", "Missed"
+        OFFER = "offer", "Offer"
+        ANSWER = "answer", "Answer"
+        ICE_CANDIDATE = "ice-candidate", "ICE candidate"
+
+    session = models.ForeignKey(
+        "calls.CallSession",
+        on_delete=models.CASCADE,
+        related_name="signals",
+    )
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="sent_call_signals",
+    )
+    target_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="received_call_signals",
+    )
+    signal_type = models.CharField(max_length=32, choices=SignalType.choices, db_index=True)
+    payload = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        db_table = "call_signals"
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["session", "created_at"]),
+            models.Index(fields=["sender", "created_at"]),
+            models.Index(fields=["target_user", "created_at"]),
+            models.Index(fields=["signal_type", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.signal_type} for {self.session_id}"
+
+
+class CallLog(UUIDTimeStampedModel):
+    session = models.ForeignKey(
+        "calls.CallSession",
+        on_delete=models.CASCADE,
+        related_name="logs",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="call_logs",
+    )
+    action = models.CharField(max_length=64, db_index=True)
+    status_from = models.CharField(max_length=32, blank=True, db_index=True)
+    status_to = models.CharField(max_length=32, blank=True, db_index=True)
+    duration_seconds = models.PositiveIntegerField(default=0)
+    payload = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        db_table = "call_logs"
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["session", "created_at"]),
+            models.Index(fields=["actor", "created_at"]),
+            models.Index(fields=["action", "created_at"]),
+            models.Index(fields=["status_to", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.action} for {self.session_id}"
 
 
 class CallEvent(UUIDTimeStampedModel):
