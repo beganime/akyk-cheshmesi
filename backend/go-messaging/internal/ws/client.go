@@ -475,19 +475,26 @@ func (c *Client) handleIncoming(raw []byte) {
 			c.sendError("you are not a member of this chat")
 			return
 		}
+		payload := map[string]interface{}{
+			"actor_uuid": c.UserUUID,
+			"email":      c.Email,
+			"username":   c.Username,
+			"call_uuid":  incoming.CallUUID,
+			"chat_uuid":  incoming.ChatUUID,
+			"room_key":   incoming.RoomKey,
+			"emitted_at": time.Now().UTC().Format(time.RFC3339),
+		}
+		for key, value := range incoming.Payload {
+			payload[key] = value
+		}
+
 		c.Hub.BroadcastToChat(incoming.ChatUUID, OutgoingMessage{
 			Type:     publicEventType(incoming.Type, originalType),
 			ChatUUID: incoming.ChatUUID,
 			CallUUID: incoming.CallUUID,
 			RoomKey:  incoming.RoomKey,
 			PeerID:   c.PeerID,
-			Payload: map[string]interface{}{
-				"actor_uuid": c.UserUUID,
-				"email":      c.Email,
-				"username":   c.Username,
-				"payload":    incoming.Payload,
-				"emitted_at": time.Now().UTC().Format(time.RFC3339),
-			},
+			Payload:  payload,
 		})
 
 	case "join_call":

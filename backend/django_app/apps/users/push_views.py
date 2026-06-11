@@ -2,7 +2,7 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .push_serializers import PushTokenDeleteSerializer, PushTokenUpsertSerializer
+from .push_serializers import PushTokenDeleteSerializer, PushTokenSerializer, PushTokenUpsertSerializer
 
 
 class PushTokenAPIView(APIView):
@@ -16,10 +16,7 @@ class PushTokenAPIView(APIView):
         return Response(
             {
                 "detail": "Push token registered",
-                "token": push_token.token,
-                "provider": push_token.provider,
-                "platform": push_token.platform,
-                "is_active": push_token.is_active,
+                "push_token": PushTokenSerializer(push_token).data,
             },
             status=status.HTTP_200_OK,
         )

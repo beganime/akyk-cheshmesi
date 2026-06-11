@@ -67,11 +67,164 @@ Response includes:
 { "refresh": "jwt" }
 ```
 
+### Logout
+
+`POST /api/auth/logout/`
+
+Optional payload deactivates the current push token during logout:
+
+```json
+{
+  "refresh": "jwt",
+  "token": "native-push-token"
+}
+```
+
+Token can also be removed by provider/device identity:
+
+```json
+{
+  "provider": "fcm",
+  "platform": "android",
+  "device_id": "android-1"
+}
+```
+
 ### Profile
 
 `GET /api/users/me/`
 
 `PUT /api/users/me/` with JSON or multipart fields.
+
+## Push Notifications
+
+Push registration requires authentication.
+
+### Register / Update Token
+
+`POST /api/push-tokens/`
+
+Alias:
+
+`POST /api/device-tokens/`
+
+```json
+{
+  "token": "native-fcm-or-apns-token",
+  "provider": "fcm",
+  "platform": "android",
+  "device_id": "android-1",
+  "device_name": "Pixel 8",
+  "app_version": "1.4.0",
+  "meta": {}
+}
+```
+
+`provider`: `fcm` or `apns`.
+
+`platform`: `android`, `ios`, or `web`.
+
+The backend keeps one active token per `user + provider + platform + device_id`, and also accepts token rotation by the same device.
+
+### Delete Token
+
+`DELETE /api/push-tokens/`
+
+Alias:
+
+`DELETE /api/device-tokens/`
+
+```json
+{ "token": "native-fcm-or-apns-token" }
+```
+
+or:
+
+```json
+{
+  "provider": "fcm",
+  "platform": "ios",
+  "device_id": "ios-1"
+}
+```
+
+### Push Data
+
+New message:
+
+```json
+{
+  "type": "message",
+  "chat_uuid": "chat-uuid",
+  "message_uuid": "message-uuid",
+  "sender_uuid": "sender-uuid",
+  "message_type": "text"
+}
+```
+
+Incoming call:
+
+```json
+{
+  "type": "call",
+  "chat_uuid": "chat-uuid",
+  "call_uuid": "call-uuid",
+  "room_key": "call-room-key",
+  "call_type": "audio",
+  "status": "ringing",
+  "initiated_by_uuid": "caller-uuid"
+}
+```
+
+Missed call:
+
+```json
+{
+  "type": "missed_call",
+  "chat_uuid": "chat-uuid",
+  "call_uuid": "call-uuid",
+  "room_key": "call-room-key",
+  "call_type": "video",
+  "status": "missed",
+  "initiated_by_uuid": "caller-uuid"
+}
+```
+
+Story reply/reaction push uses normal chat navigation and includes story metadata:
+
+```json
+{
+  "type": "story_reply",
+  "chat_uuid": "direct-chat-uuid",
+  "message_uuid": "message-uuid",
+  "sender_uuid": "sender-uuid",
+  "message_type": "text",
+  "story_uuid": "story-uuid",
+  "story_action": "reply"
+}
+```
+
+Muted and archived chat memberships are skipped for message/call push.
+
+### FCM Setup
+
+FCM is disabled by default and must not break local/dev servers without credentials.
+
+Required production env:
+
+```env
+FCM_ENABLED=True
+FCM_PROJECT_ID=your-firebase-project-id
+FIREBASE_CREDENTIALS_PATH=/app/secrets/firebase-service-account.json
+```
+
+Alternative inline credentials:
+
+```env
+FCM_SERVICE_ACCOUNT_JSON={"type":"service_account", "...":"..."}
+```
+
+The service uses Google FCM HTTP v1 through `google-auth`. Direct APNS tokens are stored for future provider support; iOS should normally send an FCM registration token when Firebase Messaging is used.
 
 ## Chats
 
@@ -343,6 +496,28 @@ Action payload:
 
 `signal_type`: `invite`, `accept`, `decline`, `end`, `missed`, `offer`, `answer`, `ice-candidate`.
 
+Compatibility signal names also accepted:
+
+- `call:offer`
+- `call:answer`
+- `call:ice-candidate`
+- `call_offer`
+- `call_answer`
+- `call_ice`
+
+Call status/event payloads include:
+
+```json
+{
+  "call_uuid": "call-uuid",
+  "chat_uuid": "chat-uuid",
+  "room_key": "call-room-key",
+  "call_type": "audio",
+  "status": "ringing",
+  "initiated_by_uuid": "caller-uuid"
+}
+```
+
 ## Stories
 
 Stories are visible for 24 hours and filtered by active chat relationship.
@@ -382,6 +557,48 @@ Text story:
 
 - `POST /api/stories/{story_uuid}/viewers/` mark story viewed
 - `GET /api/stories/{story_uuid}/viewers/` author sees viewers
+
+### Reply
+
+`POST /api/stories/{story_uuid}/reply/`
+
+```json
+{ "text": "Nice story" }
+```
+
+Creates or reuses a direct chat with the story author and returns:
+
+```json
+{
+  "story_uuid": "story-uuid",
+  "chat_uuid": "direct-chat-uuid",
+  "message": {
+    "uuid": "message-uuid",
+    "metadata": {
+      "story_uuid": "story-uuid",
+      "story_action": "reply"
+    }
+  }
+}
+```
+
+### React
+
+`POST /api/stories/{story_uuid}/react/`
+
+```json
+{ "emoji": "🔥" }
+```
+
+Creates a direct message with metadata:
+
+```json
+{
+  "story_uuid": "story-uuid",
+  "story_action": "reaction",
+  "reaction": "🔥"
+}
+```
 
 Cleanup command:
 

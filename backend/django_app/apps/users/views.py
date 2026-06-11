@@ -10,8 +10,10 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .push_serializers import PushTokenDeleteSerializer
 from .models import OneTimeCode, User
 from .serializers import (
     LoginSerializer,
@@ -339,6 +341,36 @@ class TokenRefreshAPIView(APIView):
         serializer = TokenRefreshSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+
+class LogoutAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = (request.data.get("refresh") or "").strip()
+        token_detail = "No refresh token provided"
+
+        if refresh_token:
+            try:
+                RefreshToken(refresh_token).blacklist()
+                token_detail = "Refresh token blacklisted"
+            except TokenError:
+                token_detail = "Refresh token is invalid or already blacklisted"
+
+        deactivated_count = 0
+        if any(request.data.get(key) for key in ("token", "provider", "platform", "device_id")):
+            serializer = PushTokenDeleteSerializer(data=request.data, context={"request": request})
+            serializer.is_valid(raise_exception=True)
+            deactivated_count = serializer.deactivate()
+
+        return Response(
+            {
+                "detail": "Logout processed",
+                "token_detail": token_detail,
+                "deactivated_count": deactivated_count,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class PasswordResetAPIView(APIView):

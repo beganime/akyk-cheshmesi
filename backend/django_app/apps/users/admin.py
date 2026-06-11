@@ -4,7 +4,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from unfold.admin import ModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 
-from .models import OneTimeCode, User, UserContact
+from .models import DevicePushToken, OneTimeCode, User, UserContact
 
 
 @admin.register(User)
@@ -114,3 +114,23 @@ class UserContactAdmin(ModelAdmin):
     list_display = ("id", "owner", "contact_user", "source", "last_interaction_at", "is_favorite")
     list_filter = ("source", "is_favorite", "last_interaction_at")
     search_fields = ("owner__email", "contact_user__email", "owner__username", "contact_user__username")
+
+
+@admin.register(DevicePushToken)
+class DevicePushTokenAdmin(ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "provider",
+        "platform",
+        "device_id",
+        "device_name",
+        "app_version",
+        "is_active",
+        "last_seen_at",
+        "created_at",
+    )
+    list_filter = ("provider", "platform", "is_active", "created_at", "last_seen_at")
+    search_fields = ("token", "device_id", "device_name", "user__email", "user__username", "user__uuid")
+    readonly_fields = ("uuid", "created_at", "updated_at", "last_seen_at")
+    autocomplete_fields = ("user",)

@@ -5,6 +5,7 @@ from .presence_views import PresenceBulkAPIView, PresenceDetailAPIView
 from .search_views import SearchUsersAPIView
 from .views import (
     LoginAPIView,
+    LogoutAPIView,
     MeAPIView,
     PasswordResetAPIView,
     PasswordResetConfirmAPIView,
@@ -19,6 +20,7 @@ urlpatterns = [
     path("auth/verify-email/", VerifyEmailAPIView.as_view(), name="auth-verify-email"),
     path("auth/set-password/", SetPasswordAPIView.as_view(), name="auth-set-password"),
     path("auth/login/", LoginAPIView.as_view(), name="auth-login"),
+    path("auth/logout/", LogoutAPIView.as_view(), name="auth-logout"),
     path("auth/refresh/", TokenRefreshAPIView.as_view(), name="auth-refresh"),
     path("auth/password-reset/", PasswordResetAPIView.as_view(), name="auth-password-reset"),
     path(

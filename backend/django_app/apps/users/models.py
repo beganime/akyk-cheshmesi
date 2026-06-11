@@ -115,6 +115,17 @@ class DevicePushToken(UUIDTimeStampedModel):
     class Meta:
         db_table = "user_device_push_tokens"
         ordering = ["-last_seen_at", "-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "token"],
+                name="uniq_device_push_user_token",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "provider", "platform", "device_id"],
+                condition=models.Q(is_active=True) & ~models.Q(device_id=""),
+                name="uniq_device_push_user_device",
+            ),
+        ]
         indexes = [
             models.Index(fields=["user", "is_active"]),
             models.Index(fields=["provider", "platform", "is_active"]),

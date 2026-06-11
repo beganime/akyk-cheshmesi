@@ -21,6 +21,16 @@ class PushTokenUpsertSerializer(serializers.Serializer):
         provider = validated["provider"]
         platform = validated["platform"]
         device_id = (validated.get("device_id") or "").strip()
+        now = timezone.now()
+
+        if device_id:
+            DevicePushToken.objects.filter(
+                user=user,
+                provider=provider,
+                platform=platform,
+                device_id=device_id,
+                is_active=True,
+            ).exclude(token=token_value).update(is_active=False, last_seen_at=now, updated_at=now)
 
         push_token, created = DevicePushToken.objects.get_or_create(
             token=token_value,
@@ -32,7 +42,7 @@ class PushTokenUpsertSerializer(serializers.Serializer):
                 "device_name": (validated.get("device_name") or "").strip(),
                 "app_version": (validated.get("app_version") or "").strip(),
                 "is_active": True,
-                "last_seen_at": timezone.now(),
+                "last_seen_at": now,
                 "meta": validated.get("meta") or {},
             },
         )
@@ -45,9 +55,22 @@ class PushTokenUpsertSerializer(serializers.Serializer):
             push_token.device_name = (validated.get("device_name") or "").strip()
             push_token.app_version = (validated.get("app_version") or "").strip()
             push_token.is_active = True
-            push_token.last_seen_at = timezone.now()
+            push_token.last_seen_at = now
             push_token.meta = validated.get("meta") or {}
-            push_token.save()
+            push_token.save(
+                update_fields=[
+                    "user",
+                    "provider",
+                    "platform",
+                    "device_id",
+                    "device_name",
+                    "app_version",
+                    "is_active",
+                    "last_seen_at",
+                    "meta",
+                    "updated_at",
+                ]
+            )
 
         if device_id:
             DevicePushToken.objects.filter(
@@ -59,6 +82,25 @@ class PushTokenUpsertSerializer(serializers.Serializer):
             ).exclude(id=push_token.id).update(is_active=False)
 
         return push_token
+
+
+class PushTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DevicePushToken
+        fields = (
+            "uuid",
+            "token",
+            "provider",
+            "platform",
+            "device_id",
+            "device_name",
+            "app_version",
+            "is_active",
+            "last_seen_at",
+            "meta",
+            "created_at",
+            "updated_at",
+        )
 
 
 class PushTokenDeleteSerializer(serializers.Serializer):
@@ -106,5 +148,6 @@ class PushTokenDeleteSerializer(serializers.Serializer):
                 device_id=validated["device_id"],
             )
 
-        updated = queryset.update(is_active=False, last_seen_at=timezone.now())
+        now = timezone.now()
+        updated = queryset.update(is_active=False, last_seen_at=now, updated_at=now)
         return updated

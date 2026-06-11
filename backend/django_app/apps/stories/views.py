@@ -6,9 +6,19 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.chats.models import ChatMember
+from apps.chats.utils import get_or_create_direct_chat_between
+from apps.messaging.models import Message
+from apps.messaging.realtime_events import publish_realtime_event
+from apps.messaging.serializers import MessageCreateSerializer, MessageListSerializer
 
 from .models import Story, StoryView
-from .serializers import StoryCreateSerializer, StorySerializer, StoryViewSerializer
+from .serializers import (
+    StoryCreateSerializer,
+    StoryReactionSerializer,
+    StoryReplySerializer,
+    StorySerializer,
+    StoryViewSerializer,
+)
 
 
 def visible_story_queryset(user):
@@ -105,3 +115,106 @@ class StoryViewersAPIView(APIView):
             )
         serializer = StorySerializer(story, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+def _mark_story_viewed(story, user):
+    if story.author_id != user.id:
+        StoryView.objects.update_or_create(
+            story=story,
+            viewer=user,
+            defaults={"viewed_at": timezone.now()},
+        )
+
+
+def _publish_story_message(message, request):
+    message = (
+        Message.objects.select_related("sender", "reply_to", "reply_to__sender")
+        .prefetch_related("receipts", "attachments__media")
+        .get(id=message.id)
+    )
+    output_data = MessageListSerializer(message, context={"request": request}).data
+    payload = {
+        "message": output_data,
+        "message_uuid": str(message.uuid),
+        "chat_uuid": str(message.chat.uuid),
+        "sender_uuid": str(message.sender.uuid),
+        "client_uuid": str(message.client_uuid or ""),
+        "message_type": message.message_type,
+    }
+    publish_realtime_event("message_persisted", str(message.chat.uuid), {**payload, "persisted_status": "saved"})
+    publish_realtime_event("message:new", str(message.chat.uuid), payload)
+    return output_data
+
+
+class BaseStoryInteractionAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = None
+    story_action = ""
+
+    def get_story(self):
+        return get_object_or_404(visible_story_queryset(self.request.user), uuid=self.kwargs["story_uuid"])
+
+    def build_message_text(self, serializer):
+        raise NotImplementedError
+
+    def build_metadata(self, story, serializer):
+        return {
+            "story_uuid": str(story.uuid),
+            "story_author_uuid": str(story.author.uuid),
+            "story_action": self.story_action,
+            "story_media_type": story.media_type,
+            "story_caption": story.caption,
+        }
+
+    def post(self, request, story_uuid):
+        story = self.get_story()
+        if story.author_id == request.user.id:
+            return Response({"detail": "You cannot reply/react to your own story"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        chat = get_or_create_direct_chat_between(request.user, story.author)
+        message_serializer = MessageCreateSerializer(
+            data={
+                "message_type": "text",
+                "text": self.build_message_text(serializer),
+                "metadata": self.build_metadata(story, serializer),
+            },
+            context={"request": request, "chat": chat},
+        )
+        message_serializer.is_valid(raise_exception=True)
+        message = message_serializer.save()
+        _mark_story_viewed(story, request.user)
+        message_data = _publish_story_message(message, request)
+
+        return Response(
+            {
+                "detail": f"Story {self.story_action} sent",
+                "story_uuid": str(story.uuid),
+                "chat_uuid": str(chat.uuid),
+                "message": message_data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class StoryReplyAPIView(BaseStoryInteractionAPIView):
+    serializer_class = StoryReplySerializer
+    story_action = "reply"
+
+    def build_message_text(self, serializer):
+        return serializer.validated_data["text"]
+
+
+class StoryReactionAPIView(BaseStoryInteractionAPIView):
+    serializer_class = StoryReactionSerializer
+    story_action = "reaction"
+
+    def build_message_text(self, serializer):
+        return serializer.validated_data["emoji"]
+
+    def build_metadata(self, story, serializer):
+        metadata = super().build_metadata(story, serializer)
+        metadata["reaction"] = serializer.validated_data["emoji"]
+        return metadata

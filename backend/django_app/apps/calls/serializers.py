@@ -3,6 +3,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.chats.models import Chat, ChatMember
+from apps.users.push_services import dispatch_call_push
 from apps.users.public_serializers import UserShortSerializer
 
 from .models import CallEvent, CallLog, CallParticipant, CallSession, CallSignal
@@ -215,6 +216,7 @@ class CallCreateSerializer(serializers.Serializer):
                 },
                 publish=True,
             )
+            dispatch_call_push(session.id, "call")
 
         return session
 
@@ -227,9 +229,36 @@ class CallActionSerializer(serializers.Serializer):
 
 
 class CallSignalCreateSerializer(serializers.Serializer):
-    signal_type = serializers.ChoiceField(choices=CallSignal.SignalType.choices)
+    signal_type = serializers.CharField(max_length=64)
     payload = serializers.JSONField(required=False)
     target_user_uuid = serializers.UUIDField(required=False)
+
+    SIGNAL_ALIASES = {
+        "call:invite": CallSignal.SignalType.INVITE,
+        "call_invite": CallSignal.SignalType.INVITE,
+        "call:accept": CallSignal.SignalType.ACCEPT,
+        "call_accept": CallSignal.SignalType.ACCEPT,
+        "call:decline": CallSignal.SignalType.DECLINE,
+        "call_decline": CallSignal.SignalType.DECLINE,
+        "call:end": CallSignal.SignalType.END,
+        "call_end": CallSignal.SignalType.END,
+        "call:missed": CallSignal.SignalType.MISSED,
+        "call_missed": CallSignal.SignalType.MISSED,
+        "call:offer": CallSignal.SignalType.OFFER,
+        "call_offer": CallSignal.SignalType.OFFER,
+        "call:answer": CallSignal.SignalType.ANSWER,
+        "call_answer": CallSignal.SignalType.ANSWER,
+        "call:ice-candidate": CallSignal.SignalType.ICE_CANDIDATE,
+        "call_ice": CallSignal.SignalType.ICE_CANDIDATE,
+        "ice": CallSignal.SignalType.ICE_CANDIDATE,
+    }
+
+    def validate_signal_type(self, value):
+        normalized = self.SIGNAL_ALIASES.get(value, value)
+        valid_values = {choice[0] for choice in CallSignal.SignalType.choices}
+        if normalized not in valid_values:
+            raise serializers.ValidationError("Unsupported signal_type")
+        return normalized
 
     def validate(self, attrs):
         session = self.context["session"]

@@ -115,3 +115,23 @@ class StoryCreateSerializer(serializers.Serializer):
             expires_at=timezone.now() + timedelta(hours=ttl_hours),
             is_active=True,
         )
+
+
+class StoryReplySerializer(serializers.Serializer):
+    text = serializers.CharField(max_length=2000)
+
+    def validate_text(self, value):
+        text = (value or "").strip()
+        if not text:
+            raise serializers.ValidationError("Reply text is required")
+        return text
+
+
+class StoryReactionSerializer(serializers.Serializer):
+    emoji = serializers.CharField(max_length=16)
+
+    def validate_emoji(self, value):
+        emoji = (value or "").strip()
+        if not emoji:
+            raise serializers.ValidationError("Reaction emoji is required")
+        return emoji

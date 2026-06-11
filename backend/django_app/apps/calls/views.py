@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.chats.models import Chat
+from apps.users.push_services import dispatch_call_push
 
 from .models import CallParticipant, CallSession
 from .serializers import (
@@ -372,6 +373,7 @@ class CallMissedAPIView(BaseCallActionAPIView):
                 },
                 publish=True,
             )
+            dispatch_call_push(session.id, "missed_call", actor_user_id=request.user.id)
 
         output = CallSessionDetailSerializer(session, context={"request": request})
         return Response(output.data, status=status.HTTP_200_OK)

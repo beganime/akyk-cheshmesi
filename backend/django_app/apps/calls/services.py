@@ -83,6 +83,7 @@ def create_call_event(
             "room_key": session.room_key,
             "call_type": session.call_type,
             "status": session.status,
+            "initiated_by_uuid": str(session.initiated_by.uuid),
             **payload,
         }
         publish_chat_realtime_event(
@@ -120,6 +121,9 @@ def create_call_signal(
                 "call_uuid": str(session.uuid),
                 "chat_uuid": str(session.chat.uuid),
                 "room_key": session.room_key,
+                "call_type": session.call_type,
+                "status": session.status,
+                "initiated_by_uuid": str(session.initiated_by.uuid),
                 "sender_uuid": str(sender.uuid),
                 "target_user_uuid": str(target_user.uuid) if target_user else "",
                 "signal_type": signal_type,

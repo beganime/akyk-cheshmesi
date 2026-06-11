@@ -84,3 +84,10 @@ def send_password_reset_email(self, email: str, code: str):
         "Akyl Cheshmesi"
     )
     _send_plain_email(subject=subject, message=message, email=email)
+
+
+@shared_task
+def send_push_notification(user_ids: list[int], title: str, body: str, data: dict) -> dict:
+    from .push_services import send_push_to_user_ids
+
+    return send_push_to_user_ids(user_ids, title, body, data).as_dict()
