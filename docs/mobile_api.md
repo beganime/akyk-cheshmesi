@@ -270,6 +270,7 @@ Compatibility endpoint: `POST /api/chats/group/`.
 - `POST /api/chats/{chat_uuid}/members/`
 - `DELETE /api/chats/{chat_uuid}/members/{user_uuid}/`
 - `POST /api/chats/{chat_uuid}/admins/`
+- `DELETE /api/chats/{chat_uuid}/admins/{user_uuid}/`
 - `POST /api/chats/{chat_uuid}/leave/`
 
 Add/promote payload:
@@ -289,7 +290,8 @@ Permissions:
 - Non-members cannot read or write.
 - Members can send messages.
 - Admins can update group info and add/remove normal members.
-- Owner can assign admins and delete the group.
+- Owner can assign/remove admins and delete the group.
+- Removed members lose access to the chat and message history until they are added again.
 
 ## Messages
 
@@ -421,6 +423,15 @@ Complete S3 upload:
 
 `GET /api/media/{media_uuid}/download/`
 
+Serializers return `file_url` and `thumbnail_url` as short-lived signed API URLs for local private media. Production Nginx serves the actual file through an internal `/_protected_media/` alias after Django validates the signed URL or authenticated permissions.
+
+### Media Detail / Delete
+
+- `GET /api/media/{media_uuid}/`
+- `DELETE /api/media/{media_uuid}/`
+
+Only the media owner or staff can delete a media object. Media attached to messages or active stories is protected from deletion to avoid broken chat history.
+
 Limits are configured through env:
 
 - `MAX_UPLOAD_SIZE_MB`
@@ -429,6 +440,93 @@ Limits are configured through env:
 - `VIDEO_MAX_SIZE_MB`
 - `VIDEO_NOTE_MAX_SIZE_MB`
 - `AUDIO_MAX_SIZE_MB`
+- `MEDIA_SIGNED_URL_TTL_SECONDS`
+- `MEDIA_ALLOWED_EXTENSIONS`
+- `MEDIA_BLOCKED_EXTENSIONS`
+
+## Bots
+
+Bots are Telegram-like service accounts owned by a user. Bot tokens are stored hashed and returned only on create or token rotation.
+
+Scopes:
+
+- `send_message`
+- `read_messages`
+- `upload_media`
+- `manage_chat`
+
+### My Bots
+
+`GET /api/bots/`
+
+`POST /api/bots/`
+
+```json
+{
+  "username": "helper_bot",
+  "title": "Helper Bot",
+  "description": "Answers in study groups",
+  "scopes": ["send_message"],
+  "webhook_url": ""
+}
+```
+
+Create response includes one-time `token`:
+
+```json
+{
+  "uuid": "bot-uuid",
+  "username": "helper_bot",
+  "title": "Helper Bot",
+  "token": "bot_..."
+}
+```
+
+### Bot Detail
+
+- `GET /api/bots/{bot_uuid}/`
+- `PATCH /api/bots/{bot_uuid}/`
+- `DELETE /api/bots/{bot_uuid}/`
+- `POST /api/bots/{bot_uuid}/rotate-token/`
+
+### Bot Chat Membership
+
+- `GET /api/chats/{chat_uuid}/bots/`
+- `POST /api/chats/{chat_uuid}/bots/`
+- `DELETE /api/chats/{chat_uuid}/bots/{bot_uuid}/`
+
+Add bot payload:
+
+```json
+{
+  "bot_uuid": "bot-uuid",
+  "scopes": ["send_message"]
+}
+```
+
+Only a direct chat member or group owner/admin can manage bot membership. A bot is also added as an active chat member so normal message permissions still apply.
+
+### Send Bot Message
+
+`POST /api/bots/send-message/`
+
+Header:
+
+```text
+Authorization: Bot bot_...
+```
+
+Payload:
+
+```json
+{
+  "chat_uuid": "chat-uuid",
+  "text": "Hello from bot",
+  "metadata": { "source": "integration" }
+}
+```
+
+Response is the created message object. Webhook URLs are stored on the bot profile for integration metadata; outbound webhook delivery is left for a later integration sprint.
 
 ## Calls
 

@@ -10,6 +10,7 @@ from .views import (
     ChatPinAPIView,
     ChatRetrieveAPIView,
     DirectChatCreateAPIView,
+    GroupAdminDetailAPIView,
     GroupAdminsAPIView,
     GroupChatCreateAPIView,
     GroupLeaveAPIView,
@@ -29,6 +30,11 @@ urlpatterns = [
         name="chat-member-detail",
     ),
     path("chats/<uuid:chat_uuid>/admins/", GroupAdminsAPIView.as_view(), name="chat-admins"),
+    path(
+        "chats/<uuid:chat_uuid>/admins/<uuid:user_uuid>/",
+        GroupAdminDetailAPIView.as_view(),
+        name="chat-admin-detail",
+    ),
     path("chats/<uuid:chat_uuid>/leave/", GroupLeaveAPIView.as_view(), name="chat-leave"),
     path("chats/<uuid:chat_uuid>/messages/", ChatMessagesAPIView.as_view(), name="chat-messages"),
     path(

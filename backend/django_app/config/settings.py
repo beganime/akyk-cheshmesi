@@ -23,6 +23,8 @@ env = environ.Env(
     REDIS_HISTORY_TTL_SECONDS=(int, 604800),
     REDIS_PRESENCE_TTL_SECONDS=(int, 90),
     MEDIA_MAX_UPLOAD_SIZE_BYTES=(int, 26214400),
+    MEDIA_SIGNED_URL_TTL_SECONDS=(int, 3600),
+    MEDIA_USE_X_ACCEL_REDIRECT=(bool, True),
     MAX_UPLOAD_SIZE_MB=(int, 25),
     IMAGE_MAX_WIDTH=(int, 1920),
     IMAGE_MAX_HEIGHT=(int, 1920),
@@ -178,6 +180,9 @@ STATIC_ROOT = PROJECT_ROOT / "var" / "static"
 MEDIA_URL = env("MEDIA_URL", default="/media/")
 MEDIA_ROOT = Path(env("MEDIA_ROOT", default=str(PROJECT_ROOT / "var" / "media")))
 PUBLIC_MEDIA_BASE_URL = env("PUBLIC_MEDIA_BASE_URL", default="").rstrip("/")
+MEDIA_SIGNED_URL_TTL_SECONDS = env.int("MEDIA_SIGNED_URL_TTL_SECONDS", default=3600)
+MEDIA_USE_X_ACCEL_REDIRECT = env.bool("MEDIA_USE_X_ACCEL_REDIRECT", default=True)
+MEDIA_X_ACCEL_PREFIX = env("MEDIA_X_ACCEL_PREFIX", default="/_protected_media/")
 
 MAX_UPLOAD_SIZE_MB = env.int("MAX_UPLOAD_SIZE_MB", default=25)
 MEDIA_MAX_UPLOAD_SIZE_BYTES = env.int(
@@ -225,6 +230,64 @@ MEDIA_ALLOWED_CONTENT_TYPES = env.list(
         "application/octet-stream",
     ],
 )
+MEDIA_ALLOWED_EXTENSIONS = env.list(
+    "MEDIA_ALLOWED_EXTENSIONS",
+    default=[
+        "jpg",
+        "jpeg",
+        "png",
+        "webp",
+        "gif",
+        "mp4",
+        "mov",
+        "webm",
+        "mp3",
+        "wav",
+        "m4a",
+        "aac",
+        "ogg",
+        "pdf",
+        "txt",
+        "csv",
+        "zip",
+        "doc",
+        "docx",
+        "xls",
+        "xlsx",
+        "ppt",
+        "pptx",
+    ],
+)
+MEDIA_BLOCKED_EXTENSIONS = env.list(
+    "MEDIA_BLOCKED_EXTENSIONS",
+    default=[
+        "php",
+        "phtml",
+        "phar",
+        "asp",
+        "aspx",
+        "jsp",
+        "cgi",
+        "pl",
+        "py",
+        "sh",
+        "bash",
+        "bat",
+        "cmd",
+        "ps1",
+        "exe",
+        "dll",
+        "com",
+        "scr",
+        "msi",
+        "jar",
+        "html",
+        "htm",
+        "svg",
+        "js",
+        "mjs",
+    ],
+)
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
@@ -237,6 +300,7 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "apps.common.exceptions.api_exception_handler",
     "DEFAULT_THROTTLE_CLASSES": (
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
@@ -258,11 +322,14 @@ REST_FRAMEWORK = {
         "media_presign": "60/hour",
         "media_complete": "120/hour",
         "media_upload": "30/hour",
+        "media_download": "600/hour",
         "call_create": "30/hour",
         "call_action": "240/hour",
         "call_history": "240/hour",
         "stories": "240/hour",
         "stories_create": "60/hour",
+        "bots": "120/hour",
+        "bot_send_message": "240/hour",
     },
 }
 

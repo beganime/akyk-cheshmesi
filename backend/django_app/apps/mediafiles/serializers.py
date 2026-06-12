@@ -1,6 +1,7 @@
 import json
 
 from django.conf import settings
+from django.core.signing import TimestampSigner
 from rest_framework import serializers
 
 from .models import UploadedMedia
@@ -49,6 +50,17 @@ def make_absolute_media_url(url: str | None, request=None) -> str | None:
     return url
 
 
+def build_signed_media_url(obj, request=None, *, variant: str = "file") -> str | None:
+    if obj.status != UploadedMedia.Status.UPLOADED:
+        return None
+
+    token = TimestampSigner(salt="media-download").sign(str(obj.uuid))
+    path = f"/api/media/{obj.uuid}/download/?token={token}"
+    if variant != "file":
+        path = f"{path}&variant={variant}"
+    return make_absolute_media_url(path, request=request)
+
+
 def get_s3_file_url(obj) -> str | None:
     if not obj.bucket_name or not obj.object_key:
         return None
@@ -86,10 +98,7 @@ def get_uploaded_media_file_url(obj, request=None) -> str | None:
             return None
 
     if obj.file:
-        try:
-            return make_absolute_media_url(obj.file.url, request=request)
-        except Exception:
-            return None
+        return build_signed_media_url(obj, request=request)
 
     return make_absolute_media_url(obj.meta.get("file_url"), request=request)
 
@@ -131,10 +140,7 @@ class UploadedMediaSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not obj.thumbnail:
             return make_absolute_media_url((obj.meta or {}).get("thumbnail_url"), request=request)
-        try:
-            return make_absolute_media_url(obj.thumbnail.url, request=request)
-        except Exception:
-            return None
+        return build_signed_media_url(obj, request=request, variant="thumbnail")
 
 
 class MediaAttachmentBriefSerializer(serializers.ModelSerializer):
@@ -166,10 +172,7 @@ class MediaAttachmentBriefSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not obj.thumbnail:
             return make_absolute_media_url((obj.meta or {}).get("thumbnail_url"), request=request)
-        try:
-            return make_absolute_media_url(obj.thumbnail.url, request=request)
-        except Exception:
-            return None
+        return build_signed_media_url(obj, request=request, variant="thumbnail")
 
 
 class MediaPresignRequestSerializer(serializers.Serializer):

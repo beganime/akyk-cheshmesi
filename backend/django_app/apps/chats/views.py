@@ -385,6 +385,30 @@ class GroupAdminsAPIView(generics.GenericAPIView):
         return Response(output.data, status=status.HTTP_200_OK)
 
 
+class GroupAdminDetailAPIView(generics.GenericAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, chat_uuid, user_uuid):
+        chat = get_user_chat_or_404(request.user, chat_uuid)
+        if chat.chat_type != Chat.ChatType.GROUP:
+            return Response({"detail": "Admins can be managed only in group chats"}, status=status.HTTP_400_BAD_REQUEST)
+
+        actor_membership = chat.members.filter(user=request.user, is_active=True).first()
+        if not actor_membership or actor_membership.role != ChatMember.Role.OWNER:
+            return Response({"detail": "Only group owner can remove admins"}, status=status.HTTP_403_FORBIDDEN)
+
+        target = get_object_or_404(ChatMember, chat=chat, user__uuid=user_uuid, is_active=True)
+        if target.role == ChatMember.Role.OWNER:
+            return Response({"detail": "Group owner cannot be demoted"}, status=status.HTTP_400_BAD_REQUEST)
+        if target.role != ChatMember.Role.ADMIN:
+            return Response({"detail": "User is not a group admin"}, status=status.HTTP_400_BAD_REQUEST)
+
+        target.role = ChatMember.Role.MEMBER
+        target.save(update_fields=["role", "updated_at"])
+        output = ChatDetailSerializer(chat, context={"request": request})
+        return Response(output.data, status=status.HTTP_200_OK)
+
+
 class GroupLeaveAPIView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 

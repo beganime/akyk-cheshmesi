@@ -1,57 +1,90 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Messenger - Akyl Cheshmesi</title>
+  <title>Akyl Cheshmesi - Web Cabinet</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
-<body class="messenger-body">
-  <main class="messenger-app">
-    <aside class="chat-sidebar" id="chatSidebar">
-      <div class="sidebar-head">
-        <button class="icon-button" id="menuToggle" aria-label="Меню">☰</button>
+<body class="cabinet-body">
+  <main class="cabinet-app" data-section="dashboard">
+    <aside class="cabinet-drawer" id="cabinetDrawer" aria-label="Разделы кабинета">
+      <div class="drawer-profile">
+        <div class="avatar avatar-lg" id="drawerAvatar">A</div>
         <div>
-          <strong>Chats</strong>
-          <span id="connectionState">offline</span>
+          <strong id="drawerName">Akyl Cheshmesi</strong>
+          <span id="drawerEmail">web cabinet</span>
         </div>
-        <button class="icon-button" id="logoutButton" aria-label="Выйти">↪</button>
       </div>
-      <label class="search-box">
-        <span>⌕</span>
-        <input id="chatSearch" type="search" placeholder="Поиск">
-      </label>
-      <div class="stories-strip" id="storiesStrip"></div>
-      <div class="chat-list" id="chatList"></div>
+
+      <nav class="drawer-nav">
+        <button class="drawer-link active" type="button" data-section="dashboard"><span>⌂</span>Dashboard</button>
+        <button class="drawer-link" type="button" data-section="users"><span>☻</span>Пользователи</button>
+        <button class="drawer-link" type="button" data-section="chats"><span>□</span>Все чаты</button>
+        <button class="drawer-link" type="button" data-section="private"><span>○</span>Личные чаты</button>
+        <button class="drawer-link" type="button" data-section="groups"><span>◎</span>Группы</button>
+        <button class="drawer-link" type="button" data-section="media"><span>▣</span>Медиа</button>
+        <button class="drawer-link" type="button" data-section="bots"><span>✦</span>Боты</button>
+        <button class="drawer-link" type="button" data-section="settings"><span>⚙</span>Настройки</button>
+        <button class="drawer-link" type="button" data-section="profile"><span>◉</span>Профиль</button>
+      </nav>
+
+      <div class="drawer-footer">
+        <button class="drawer-action" type="button" id="themeToggle">Светлая тема</button>
+        <button class="drawer-action danger" type="button" id="logoutButton">Выйти</button>
+      </div>
     </aside>
 
-    <section class="chat-pane">
+    <section class="left-panel" id="chatSidebar">
+      <div class="top-bar">
+        <button class="round-button" type="button" id="menuToggle" aria-label="Открыть меню">☰</button>
+        <label class="search-wrapper">
+          <span class="search-icon">⌕</span>
+          <input class="search-input" id="chatSearch" type="search" placeholder="Поиск">
+        </label>
+        <button class="round-button" type="button" id="newChatButton" aria-label="Новый чат">+</button>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab active" type="button" data-filter="all">Все</button>
+        <button class="tab" type="button" data-filter="private">Личные</button>
+        <button class="tab" type="button" data-filter="groups">Группы</button>
+      </div>
+
+      <div class="stories-container" id="storiesStrip"></div>
+      <div class="chat-list" id="chatList"></div>
+    </section>
+
+    <section class="cabinet-main">
       <header class="chat-header">
-        <button class="icon-button mobile-only" id="backToChats" aria-label="Назад">‹</button>
+        <button class="round-button mobile-only" type="button" id="backToChats" aria-label="К списку чатов">‹</button>
         <div class="avatar" id="activeAvatar">A</div>
         <div class="chat-title-block">
-          <strong id="activeChatTitle">Выберите чат</strong>
-          <span id="activeChatStatus">online status появится здесь</span>
+          <strong id="activeChatTitle">Dashboard</strong>
+          <span id="activeChatStatus">online status</span>
         </div>
         <div class="chat-tools">
-          <button class="icon-button" id="audioCallButton" title="Аудио звонок">☎</button>
-          <button class="icon-button" id="videoCallButton" title="Видео звонок">◉</button>
+          <span class="connection-pill" id="connectionState">offline</span>
+          <button class="round-button" type="button" id="audioCallButton" title="Аудиозвонок">☎</button>
+          <button class="round-button" type="button" id="videoCallButton" title="Видеозвонок">◉</button>
         </div>
       </header>
 
-      <div class="messages" id="messages">
+      <section class="cabinet-content" id="cabinetContent"></section>
+
+      <div class="messages is-hidden" id="messages">
         <div class="empty-state">
           <h1>Akyl Cheshmesi</h1>
-          <p>Откройте чат слева, чтобы начать переписку.</p>
+          <p>Выберите чат слева, чтобы начать переписку.</p>
         </div>
       </div>
 
-      <form class="composer" id="messageForm">
-        <button class="icon-button" type="button" id="attachButton" title="Прикрепить файл">＋</button>
+      <form class="composer is-hidden" id="messageForm">
+        <button class="round-button" type="button" id="attachButton" title="Прикрепить файл">+</button>
         <input id="fileInput" type="file" hidden>
         <input id="messageInput" autocomplete="off" placeholder="Сообщение">
-        <button class="icon-button" type="button" id="voiceButton" title="Аудио сообщение">♪</button>
-        <button class="icon-button" type="button" id="videoNoteButton" title="Видеокружочек">●</button>
+        <button class="round-button" type="button" id="voiceButton" title="Аудиосообщение">♪</button>
+        <button class="round-button" type="button" id="videoNoteButton" title="Видеокружочек">●</button>
         <button class="send-button" type="submit" title="Отправить">➤</button>
       </form>
     </section>

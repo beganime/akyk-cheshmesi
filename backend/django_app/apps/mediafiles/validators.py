@@ -1,4 +1,5 @@
 import mimetypes
+import os
 from dataclasses import dataclass
 
 from django.conf import settings
@@ -42,6 +43,18 @@ def validate_upload_input(filename: str, content_type: str, size: int) -> Valida
 
     normalized_content_type = normalize_content_type(filename, content_type)
     allowed = set(getattr(settings, "MEDIA_ALLOWED_CONTENT_TYPES", []))
+    extension = os.path.splitext(filename or "")[1].lower().lstrip(".")
+    allowed_extensions = set(getattr(settings, "MEDIA_ALLOWED_EXTENSIONS", []))
+    blocked_extensions = set(getattr(settings, "MEDIA_BLOCKED_EXTENSIONS", []))
+
+    if not extension:
+        raise ValueError("File extension is required")
+
+    if extension in blocked_extensions:
+        raise ValueError(f"File extension is not allowed: .{extension}")
+
+    if allowed_extensions and extension not in allowed_extensions:
+        raise ValueError(f"Unsupported file extension: .{extension}")
 
     if allowed and normalized_content_type not in allowed:
         raise ValueError(f"Unsupported content type: {normalized_content_type}")
