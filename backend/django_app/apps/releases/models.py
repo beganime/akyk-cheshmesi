@@ -29,7 +29,7 @@ class AppRelease(UUIDTimeStampedModel):
     platform = models.CharField(max_length=24, choices=Platform.choices, default=Platform.ANDROID, db_index=True)
     channel = models.CharField(max_length=24, choices=ReleaseChannel.choices, default=ReleaseChannel.TESTING, db_index=True)
     store_status = models.CharField(max_length=24, choices=StoreStatus.choices, default=StoreStatus.DRAFT, db_index=True)
-    package_file = models.FileField("APK / файл сборки", upload_to="app_packages/android/", blank=True, null=True)
+    package_file = models.FileField("Файл сборки", upload_to="app_packages/android/", blank=True, null=True)
     download_url = models.URLField(max_length=600, blank=True)
     google_play_url = models.URLField(max_length=600, blank=True)
     testflight_url = models.URLField(max_length=600, blank=True)
