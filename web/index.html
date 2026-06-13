@@ -3,88 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Akyl Cheshmesi - web messenger</title>
-  <meta name="description" content="Akyl Cheshmesi - безопасный web messenger с чатами, звонками, историями и быстрым обменом медиа.">
+  <title>Akyl Cheshmesi — мессенджер для студентов</title>
+  <meta name="description" content="Akyl Cheshmesi — мессенджер для студентов, документов и образовательного сопровождения.">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/site.css">
 </head>
-<body class="site-body">
+<body class="site-body brand-site">
   <header class="site-nav">
-    <a class="brand" href="/">
-      <span class="brand-mark">A</span>
-      <span>Akyl Cheshmesi</span>
+    <a class="brand brand-logo" href="/">
+      <span class="brand-logo-mark">AC</span>
+      <span class="brand-logo-title"><b>Akyl Cheshmesi</b><span>Documents · Students · Messenger</span></span>
     </a>
     <nav class="nav-links" aria-label="Основная навигация">
-      <a href="/privacy/">Privacy</a>
-      <a href="/terms/">Terms</a>
+      <a href="#about">О компании</a>
+      <a href="#security">Безопасность</a>
+      <a href="#downloads">Релизы</a>
+      <a href="/privacy/">Политика</a>
+      <a href="/terms/">Условия</a>
       <a class="nav-button" href="/login/">Войти</a>
     </nav>
   </header>
 
   <main>
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">Web messenger</p>
-        <h1>Akyl Cheshmesi</h1>
-        <p class="hero-text">Легкий мессенджер для личных и групповых чатов, звонков, историй, голосовых сообщений и видеокружков.</p>
-        <div class="hero-actions">
-          <a class="primary-action" href="/messenger/">Открыть messenger</a>
-          <a class="secondary-action" href="/login/">Войти в аккаунт</a>
-        </div>
-      </div>
-      <div class="messenger-preview" aria-label="Предпросмотр web messenger">
-        <div class="preview-sidebar">
-          <div class="preview-search"></div>
-          <div class="preview-chat active"><span></span><div><b>Study group</b><small>Video note received</small></div></div>
-          <div class="preview-chat"><span></span><div><b>Begenc</b><small>See you at 19:00</small></div></div>
-          <div class="preview-chat"><span></span><div><b>Team</b><small>Call ended</small></div></div>
-        </div>
-        <div class="preview-main">
-          <div class="preview-top"><span></span><div><b>Study group</b><small>8 участников, 3 online</small></div></div>
-          <div class="preview-bubble incoming">Загрузи презентацию в чат.</div>
-          <div class="preview-bubble outgoing">Готово. Еще отправлю голосовое.</div>
-          <div class="preview-voice"><i></i><i></i><i></i><i></i><i></i></div>
-          <div class="preview-input"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="feature-band" aria-label="Возможности">
-      <article>
-        <span>01</span>
-        <h2>Группы и приватные чаты</h2>
-        <p>Участники, админы, владелец группы, непрочитанные сообщения и read receipts.</p>
-      </article>
-      <article>
-        <span>02</span>
-        <h2>Звонки и signaling</h2>
-        <p>WebRTC audio/video calls с событиями invite, accept, decline, offer, answer и ICE.</p>
-      </article>
-      <article>
-        <span>03</span>
-        <h2>Медиа как в Telegram</h2>
-        <p>Изображения, видео, документы, audio messages, видеокружки и stories на 24 часа.</p>
-      </article>
-    </section>
-
-    <section class="security-band">
+    <section class="site-hero">
       <div>
-        <p class="eyebrow">Security</p>
-        <h2>Приватность заложена в серверный контракт</h2>
-        <p>Чаты доступны только участникам, медиа проверяется по размеру и MIME, JWT используется для API и WebSocket, а production-секреты остаются в env.</p>
+        <p class="site-kicker">Мессенджер для образовательной экосистемы</p>
+        <h1>Документы, поступление и поддержка студентов — в одном пространстве.</h1>
+        <p>Akyl Cheshmesi создан командой, которая работает с переводом документов, образовательным сопровождением и коммуникацией студентов. Проект объединяет опыт компании по документам и Student's Life — партнёра студентов при поступлении в иностранные университеты.</p>
+        <div class="hero-actions"><a class="primary-action" href="/messenger/">Открыть мессенджер</a><a class="secondary-action" href="#support">Оставить заявку</a></div>
+        <div class="trust-strip"><span class="trust-pill">Гендиректор: Алишер Худайбердыев</span><span class="trust-pill">Поступление за рубежом</span><span class="trust-pill">Перевод документов</span><span class="trust-pill">Защищённые чаты</span></div>
       </div>
-      <a class="secondary-action" href="/privacy/">Политика конфиденциальности</a>
+      <div class="phone-showcase"><div class="phone-card"><div class="phone-topbar"><span class="phone-dot"></span><span class="phone-title"><b>Akyl Cheshmesi</b><span>online · secure</span></span></div><div class="chat-preview-list"><div class="chat-preview-row"><span class="phone-dot"></span><div><strong>Student's Life</strong><small>Проверили документы для подачи</small></div><span class="preview-badge">2</span></div><div class="chat-preview-row"><span class="phone-dot"></span><div><strong>Переводы</strong><small>Нотариальный перевод готов</small></div><span></span></div><div class="chat-preview-row"><span class="phone-dot"></span><div><strong>Куратор студента</strong><small>Виза и приглашение под контролем</small></div><span class="preview-badge">1</span></div><div class="chat-preview-row"><span class="phone-dot"></span><div><strong>IT команда</strong><small>Новый релиз приложения загружен</small></div><span></span></div></div></div></div>
     </section>
+
+    <section id="about" class="bento-section"><div class="section-head"><p class="site-kicker">О проекте</p><h2>Две команды объединили усилия ради удобства студентов.</h2><p>Student's Life помогает студентам выбрать страну, подготовить документы, пройти этапы поступления, визы, вылета и адаптации. Наша команда переводов отвечает за документы, проверку комплектности и сопровождение файлов.</p></div><div class="bento-grid"><article class="bento-card large"><h3>Что делает Akyl Cheshmesi</h3><p>Мы строим мессенджер, где студент, менеджер, переводчик документов, куратор и IT‑поддержка могут быстро обмениваться сообщениями, файлами, звонками, историями и статусами.</p><div class="metric-row"><div class="metric"><strong>24/7</strong><span>цифровая связь</span></div><div class="metric"><strong>100k</strong><span>ориентир по нагрузке</span></div><div class="metric"><strong>2</strong><span>компании в связке</span></div><div class="metric"><strong>1</strong><span>единая платформа</span></div></div></article><article class="bento-card"><h3>Перевод документов</h3><p>Отдельное направление отвечает за переводы, подготовку файлов, проверку комплектности и передачу документов студенту или менеджеру.</p></article><article class="bento-card"><h3>Student's Life</h3><p>Партнёрская команда сопровождает поступление в иностранные вузы, консультации, визовые этапы, жильё и адаптацию.</p></article></div></section>
+
+    <section id="security" class="bento-section"><div class="section-head"><p class="site-kicker">Безопасность</p><h2>Мы проектируем мессенджер как рабочий инструмент.</h2><p>Для студентов важны документы, сроки, личные данные и переписка с менеджерами. Поэтому безопасность — базовый слой платформы.</p></div><div class="bento-grid"><article class="bento-card"><h3>Контроль доступа</h3><ul><li>Доступ к чатам только для участников.</li><li>Токены для API и realtime‑соединения.</li><li>Разграничение ролей в группах.</li></ul></article><article class="bento-card"><h3>Защита медиа</h3><ul><li>Проверка типа и размера файлов.</li><li>Безопасное хранение файлов.</li><li>Ограничение загрузок от злоупотреблений.</li></ul></article><article class="bento-card"><h3>Приватность</h3><ul><li>Мы не продаём персональные данные.</li><li>Stories ограничены по времени.</li><li>Удалённые сообщения скрываются.</li></ul></article><article class="bento-card"><h3>Надёжность</h3><ul><li>Быстрая доставка событий.</li><li>Логи ошибок для расследования инцидентов.</li><li>Рабочие ключи хранятся вне кода.</li></ul></article><article class="bento-card"><h3>Звонки</h3><ul><li>Сервер хранит статусы звонка.</li><li>Права камеры и микрофона подтверждает пользователь.</li><li>История звонков доступна участникам.</li></ul></article><article class="bento-card"><h3>Поддержка</h3><ul><li>Заявки фиксируются в админке.</li><li>Можно менять статус обработки.</li><li>Есть источник и техническая информация заявки.</li></ul></article></div></section>
+
+    <section id="downloads" class="bento-section"><div class="section-head"><p class="site-kicker">Приложение</p><h2>Релизы Android, Google Play и TestFlight управляются из админки.</h2><p>Android APK можно загрузить на сервер через админку. Google Play будет добавлен после прохождения тестирования рабочей версии. Для iOS используется TestFlight.</p></div><div class="download-panel"><a class="download-card" href="/api/app-releases/?platform=android"><strong>Android APK</strong><small>Последние сборки приложения на сервере</small></a><a class="download-card" href="/api/app-releases/?platform=ios"><strong>iOS TestFlight</strong><small>Тестовые сборки для iPhone</small></a></div></section>
+
+    <section id="support" class="bento-section"><div class="section-head"><p class="site-kicker">Заявка</p><h2>Оставьте заявку — мы направим её нужной команде.</h2><p>Для заявок создан API и раздел в админке. Форма будет подключена к обработке заявок на следующем шаге после проверки CSRF/публичной отправки.</p></div><div class="download-panel"><a class="download-card" href="/api/website/content/"><strong>Контент сайта</strong><small>API настроек, команды и юридических текстов</small></a><a class="download-card" href="/api/website/team/"><strong>Команда</strong><small>Сотрудники, переводы, Student's Life и IT</small></a></div></section>
   </main>
 
-  <footer class="site-footer">
-    <span>© 2026 Akyl Cheshmesi</span>
-    <a href="/privacy/">Privacy</a>
-    <a href="/terms/">Terms</a>
-  </footer>
-  <script>
-    if (localStorage.getItem("akyl_access")) {
-      window.location.replace("/messenger/");
-    }
-  </script>
+  <footer class="site-footer"><span>© 2026 Akyl Cheshmesi</span><a href="/privacy/">Политика конфиденциальности</a><a href="/terms/">Условия использования</a></footer>
 </body>
 </html>
