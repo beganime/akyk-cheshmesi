@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from apps.common.models import UUIDTimeStampedModel
@@ -28,7 +29,7 @@ class AppRelease(UUIDTimeStampedModel):
     platform = models.CharField(max_length=24, choices=Platform.choices, default=Platform.ANDROID, db_index=True)
     channel = models.CharField(max_length=24, choices=ReleaseChannel.choices, default=ReleaseChannel.TESTING, db_index=True)
     store_status = models.CharField(max_length=24, choices=StoreStatus.choices, default=StoreStatus.DRAFT, db_index=True)
-    package_file = models.FileField(upload_to="app_packages/android/", blank=True, null=True)
+    package_file = models.FileField("APK / файл сборки", upload_to="app_packages/android/", blank=True, null=True)
     download_url = models.URLField(max_length=600, blank=True)
     google_play_url = models.URLField(max_length=600, blank=True)
     testflight_url = models.URLField(max_length=600, blank=True)
@@ -59,6 +60,13 @@ class AppRelease(UUIDTimeStampedModel):
     @property
     def resolved_download_url(self) -> str:
         return self.package_url or self.download_url or self.google_play_url or self.testflight_url
+
+    def clean(self):
+        super().clean()
+        if self.platform == self.Platform.ANDROID and self.package_file:
+            file_name = self.package_file.name.lower()
+            if not file_name.endswith(".apk"):
+                raise ValidationError({"package_file": "Для Android загружайте файл APK."})
 
     def save(self, *args, **kwargs):
         if self.package_file and not self.file_size_bytes:
