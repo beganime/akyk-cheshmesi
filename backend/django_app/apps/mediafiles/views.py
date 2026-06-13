@@ -19,6 +19,7 @@ from .serializers import (
 )
 from .validators import validate_upload_input
 
+
 def validate_media_duration(media_kind: str, duration_seconds: int | None):
     if duration_seconds is None:
         return
@@ -259,6 +260,7 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
         width = serializer.validated_data.get("width")
         height = serializer.validated_data.get("height")
         waveform_data = serializer.validated_data.get("waveform_data") or []
+        requested_media_kind = serializer.validated_data.get("media_kind")
 
         try:
             validated = validate_upload_input(
@@ -266,68 +268,79 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
                 getattr(file_obj, "content_type", "") or "",
                 file_obj.size,
             )
+            if requested_media_kind and requested_media_kind != validated.media_kind:
+                return Response(
+                    {"media_kind": f"media_kind '{requested_media_kind}' does not match uploaded file type '{validated.media_kind}'."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             validate_media_duration(validated.media_kind, duration_seconds)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        processed_image = None
-        if validated.media_kind == UploadedMedia.MediaKind.IMAGE:
-            try:
-                processed_image = process_image_upload(file_obj)
-            except Exception as exc:
-                return Response({"detail": f"Image processing failed: {exc}"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            processed_image = None
+            if validated.media_kind == UploadedMedia.MediaKind.IMAGE:
+                try:
+                    processed_image = process_image_upload(file_obj)
+                except Exception as exc:
+                    return Response({"detail": f"Image processing failed: {exc}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if processed_image:
-            object_key = build_media_object_key(str(request.user.uuid), processed_image.filename)
-            saved_name = default_storage.save(object_key, processed_image.file)
-            thumbnail_key = make_thumbnail_object_key(str(request.user.uuid), processed_image.thumbnail_filename)
-            saved_thumbnail = default_storage.save(thumbnail_key, processed_image.thumbnail)
-            file_size = processed_image.size
-            content_type = processed_image.content_type
-            width = processed_image.width
-            height = processed_image.height
-            original_name = processed_image.filename
-        else:
-            file_obj.seek(0)
-            object_key = build_media_object_key(str(request.user.uuid), file_obj.name)
-            saved_name = default_storage.save(object_key, file_obj)
-            saved_thumbnail = ""
-            file_size = validated.size
-            content_type = validated.content_type
-            original_name = file_obj.name
+            if processed_image:
+                object_key = build_media_object_key(str(request.user.uuid), processed_image.filename)
+                saved_name = default_storage.save(object_key, processed_image.file)
+                thumbnail_key = make_thumbnail_object_key(str(request.user.uuid), processed_image.thumbnail_filename)
+                saved_thumbnail = default_storage.save(thumbnail_key, processed_image.thumbnail)
+                file_size = processed_image.size
+                content_type = processed_image.content_type
+                width = processed_image.width
+                height = processed_image.height
+                original_name = processed_image.filename
+            else:
+                file_obj.seek(0)
+                object_key = build_media_object_key(str(request.user.uuid), file_obj.name)
+                saved_name = default_storage.save(object_key, file_obj)
+                saved_thumbnail = ""
+                file_size = validated.size
+                content_type = validated.content_type
+                original_name = file_obj.name
 
-        media = UploadedMedia.objects.create(
-            owner=request.user,
-            original_name=original_name,
-            content_type=content_type,
-            size=file_size,
-            media_kind=validated.media_kind,
-            storage_provider=UploadedMedia.StorageProvider.LOCAL,
-            status=UploadedMedia.Status.UPLOADED,
-            is_public=is_public,
-            object_key=saved_name,
-            file=saved_name,
-            thumbnail=saved_thumbnail or None,
-            duration_seconds=duration_seconds,
-            width=width,
-            height=height,
-            waveform_data=waveform_data,
-            meta={
-                "duration_seconds": duration_seconds,
-                "width": width,
-                "height": height,
-                "waveform_data": waveform_data,
-                "optimized": bool(processed_image),
-            },
-        )
+            media = UploadedMedia.objects.create(
+                owner=request.user,
+                original_name=original_name,
+                content_type=content_type,
+                size=file_size,
+                media_kind=validated.media_kind,
+                storage_provider=UploadedMedia.StorageProvider.LOCAL,
+                status=UploadedMedia.Status.UPLOADED,
+                is_public=is_public,
+                object_key=saved_name,
+                file=saved_name,
+                thumbnail=saved_thumbnail or None,
+                duration_seconds=duration_seconds,
+                width=width,
+                height=height,
+                waveform_data=waveform_data,
+                meta={
+                    "duration_seconds": duration_seconds,
+                    "width": width,
+                    "height": height,
+                    "waveform_data": waveform_data,
+                    "optimized": bool(processed_image),
+                },
+            )
 
-        if media.media_kind == UploadedMedia.MediaKind.VIDEO and not media.thumbnail:
-            create_video_thumbnail(media)
+            if media.media_kind == UploadedMedia.MediaKind.VIDEO and not media.thumbnail:
+                create_video_thumbnail(media)
 
-        return Response(
-            UploadedMediaSerializer(media, context={"request": request}).data,
-            status=status.HTTP_201_CREATED,
-        )
+            return Response(
+                UploadedMediaSerializer(media, context={"request": request}).data,
+                status=status.HTTP_201_CREATED,
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": "Media upload failed", "error": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class MediaDownloadAPIView(generics.GenericAPIView):
