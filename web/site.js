@@ -1,7 +1,21 @@
 (() => {
+  const escapeHtml = (value) => String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
   const text = (selector, value) => {
     const node = document.querySelector(selector);
     if (node && value) node.textContent = value;
+  };
+
+  const renderTextBlock = (selector, value) => {
+    const node = document.querySelector(selector);
+    if (!node || !value) return;
+    const parts = String(value).split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
+    node.innerHTML = parts.map((part) => `<p>${escapeHtml(part)}</p>`).join('');
   };
 
   async function loadWebsiteContent() {
@@ -23,11 +37,13 @@
       text('[data-site-translations]', settings.translation_company_text);
       text('[data-site-students-life]', settings.students_life_text);
       text('[data-site-security]', settings.security_text);
+      renderTextBlock('[data-privacy-policy]', settings.privacy_policy);
+      renderTextBlock('[data-terms-of-use]', settings.terms_of_use);
 
       const logo = document.querySelector('[data-site-logo]');
       const logoUrl = settings.logo_file_url || settings.logo_url;
       if (logo && logoUrl) {
-        logo.innerHTML = `<img src="${logoUrl}" alt="${settings.company_name || 'Akyl Cheshmesi'}" />`;
+        logo.innerHTML = `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(settings.company_name || 'Akyl Cheshmesi')}" />`;
       }
 
       const googlePlay = document.querySelector('[data-google-play-link]');
@@ -38,7 +54,7 @@
       const teamRoot = document.querySelector('[data-team-list]');
       if (teamRoot && team.length) {
         teamRoot.innerHTML = team.slice(0, 8).map((member) => (
-          `<article class="bento-card"><h3>${member.full_name}</h3><p>${member.role || member.team_label || ''}</p><p>${member.bio || ''}</p></article>`
+          `<article class="bento-card"><h3>${escapeHtml(member.full_name)}</h3><p>${escapeHtml(member.role || member.team_label || '')}</p><p>${escapeHtml(member.bio || '')}</p></article>`
         )).join('');
       }
     } catch (_) {}
@@ -59,7 +75,7 @@
         const url = item.resolved_download_url || item.download_url || item.google_play_url || item.testflight_url || '#';
         const title = `${item.platform || 'app'} ${item.version || ''}`.trim();
         const subtitle = `${item.channel || 'testing'} · ${item.store_status || 'draft'}`;
-        return `<a class="download-card" href="${url}"><strong>${title}</strong><small>${subtitle}</small></a>`;
+        return `<a class="download-card" href="${escapeHtml(url)}"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle)}</small></a>`;
       }).join('');
     } catch (_) {}
   }
