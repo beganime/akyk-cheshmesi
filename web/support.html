@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-dynamic-site>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,12 +8,12 @@
   <link rel="stylesheet" href="/site.css">
 </head>
 <body class="site-body brand-site">
-  <header class="site-nav"><a class="brand brand-logo" href="/"><span class="brand-logo-mark">AC</span><span class="brand-logo-title"><b>Akyl Cheshmesi</b><span>Support</span></span></a><nav class="nav-links"><a href="/">Главная</a><a href="/privacy/">Политика</a><a class="nav-button" href="/login/">Войти</a></nav></header>
+  <header class="site-nav"><a class="brand brand-logo" href="/"><span class="brand-logo-mark" data-site-logo>AC</span><span class="brand-logo-title"><b data-site-company>Akyl Cheshmesi</b><span>Support</span></span></a><nav class="nav-links"><a href="/">Главная</a><a href="/privacy/">Политика</a><a class="nav-button" href="/login/">Войти</a></nav></header>
   <main class="bento-section">
     <div class="section-head"><p class="site-kicker">Заявка</p><h1>Оставить заявку</h1><p>Заполните форму. Заявка попадёт в админку Akyl Cheshmesi, где команда сможет обработать её по теме: поступление, перевод документов, приложение, партнёрство или поддержка.</p></div>
     <div class="bento-grid">
       <article class="bento-card large">
-        <form class="support-form" action="/api/website/support/" method="post">
+        <form class="support-form" data-support-form>
           <input name="full_name" required placeholder="Ваше имя">
           <input name="phone" placeholder="Телефон / WhatsApp / Telegram">
           <input name="email" type="email" placeholder="Email">
@@ -28,10 +28,12 @@
           <input name="preferred_contact" placeholder="Удобный способ связи">
           <textarea name="message" required placeholder="Кратко опишите вопрос"></textarea>
           <button class="primary-action" type="submit">Отправить</button>
+          <p class="form-status" data-form-status></p>
         </form>
       </article>
       <article class="bento-card"><h3>Что дальше?</h3><p>После отправки заявка появится в разделе админки «Заявки с сайта». Там можно менять статус и оставить внутренний комментарий.</p></article>
     </div>
   </main>
+  <script src="/site.js" defer></script>
 </body>
 </html>
