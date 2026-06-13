@@ -1,3 +1,5 @@
+from urllib.parse import quote_plus
+
 from rest_framework import serializers
 
 from .models import AppRelease
@@ -6,6 +8,7 @@ from .models import AppRelease
 class AppReleaseSerializer(serializers.ModelSerializer):
     package_url = serializers.SerializerMethodField()
     resolved_download_url = serializers.CharField(read_only=True)
+    qr_code_url = serializers.SerializerMethodField()
 
     class Meta:
         model = AppRelease
@@ -28,6 +31,7 @@ class AppReleaseSerializer(serializers.ModelSerializer):
             "released_at",
             "min_android_version",
             "available_platforms",
+            "qr_code_url",
             "created_at",
             "updated_at",
         )
@@ -38,3 +42,9 @@ class AppReleaseSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         url = obj.package_file.url
         return request.build_absolute_uri(url) if request else url
+
+    def get_qr_code_url(self, obj: AppRelease) -> str:
+        link = obj.resolved_download_url
+        if not link:
+            return ""
+        return f"https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={quote_plus(link)}"
