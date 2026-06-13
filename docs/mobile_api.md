@@ -2,8 +2,8 @@
 
 Base URLs:
 
-- REST production: `https://akyl-cheshmesi.ru/api/`
-- REST compatibility: `https://akyl-cheshmesi.ru/api/v1/`
+- REST production: `https://akyl-cheshmesi.ru/api/v1/`
+- REST legacy compatibility: `https://akyl-cheshmesi.ru/api/`
 - WebSocket: `wss://akyl-cheshmesi.ru/ws?token=<access_token>`
 - Optional call SFU socket: `wss://akyl-cheshmesi.ru/ws/calls?token=<access_token>`
 
@@ -13,7 +13,7 @@ Authentication uses JWT access/refresh tokens. Send REST auth as `Authorization:
 
 ### Register
 
-`POST /api/auth/register/`
+`POST /api/v1/auth/register/`
 
 ```json
 { "email": "user@example.com" }
@@ -21,7 +21,7 @@ Authentication uses JWT access/refresh tokens. Send REST auth as `Authorization:
 
 ### Verify Email
 
-`POST /api/auth/verify-email/`
+`POST /api/v1/auth/verify-email/`
 
 ```json
 { "email": "user@example.com", "code": "123456" }
@@ -29,7 +29,7 @@ Authentication uses JWT access/refresh tokens. Send REST auth as `Authorization:
 
 ### Set Password
 
-`POST /api/auth/set-password/`
+`POST /api/v1/auth/set-password/`
 
 ```json
 {
@@ -44,7 +44,7 @@ Authentication uses JWT access/refresh tokens. Send REST auth as `Authorization:
 
 ### Login
 
-`POST /api/auth/login/`
+`POST /api/v1/auth/login/`
 
 ```json
 { "email": "user@example.com", "password": "strong-password" }
@@ -61,7 +61,7 @@ Response includes:
 
 ### Refresh
 
-`POST /api/auth/refresh/`
+`POST /api/v1/auth/refresh/`
 
 ```json
 { "refresh": "jwt" }
@@ -69,251 +69,41 @@ Response includes:
 
 ### Logout
 
-`POST /api/auth/logout/`
-
-Optional payload deactivates the current push token during logout:
+`POST /api/v1/auth/logout/`
 
 ```json
-{
-  "refresh": "jwt",
-  "token": "native-push-token"
-}
-```
-
-Token can also be removed by provider/device identity:
-
-```json
-{
-  "provider": "fcm",
-  "platform": "android",
-  "device_id": "android-1"
-}
+{ "refresh": "jwt" }
 ```
 
 ### Profile
 
-`GET /api/users/me/`
-
-`PUT /api/users/me/` with JSON or multipart fields.
-
-## Push Notifications
-
-Push registration requires authentication.
-
-### Register / Update Token
-
-`POST /api/push-tokens/`
-
-Alias:
-
-`POST /api/device-tokens/`
-
-```json
-{
-  "token": "native-fcm-or-apns-token",
-  "provider": "fcm",
-  "platform": "android",
-  "device_id": "android-1",
-  "device_name": "Pixel 8",
-  "app_version": "1.4.0",
-  "meta": {}
-}
-```
-
-`provider`: `fcm` or `apns`.
-
-`platform`: `android`, `ios`, or `web`.
-
-The backend keeps one active token per `user + provider + platform + device_id`, and also accepts token rotation by the same device.
-
-### Delete Token
-
-`DELETE /api/push-tokens/`
-
-Alias:
-
-`DELETE /api/device-tokens/`
-
-```json
-{ "token": "native-fcm-or-apns-token" }
-```
-
-or:
-
-```json
-{
-  "provider": "fcm",
-  "platform": "ios",
-  "device_id": "ios-1"
-}
-```
-
-### Push Data
-
-New message:
-
-```json
-{
-  "type": "message",
-  "chat_uuid": "chat-uuid",
-  "message_uuid": "message-uuid",
-  "sender_uuid": "sender-uuid",
-  "message_type": "text"
-}
-```
-
-Incoming call:
-
-```json
-{
-  "type": "call",
-  "chat_uuid": "chat-uuid",
-  "call_uuid": "call-uuid",
-  "room_key": "call-room-key",
-  "call_type": "audio",
-  "status": "ringing",
-  "initiated_by_uuid": "caller-uuid"
-}
-```
-
-Missed call:
-
-```json
-{
-  "type": "missed_call",
-  "chat_uuid": "chat-uuid",
-  "call_uuid": "call-uuid",
-  "room_key": "call-room-key",
-  "call_type": "video",
-  "status": "missed",
-  "initiated_by_uuid": "caller-uuid"
-}
-```
-
-Story reply/reaction push uses normal chat navigation and includes story metadata:
-
-```json
-{
-  "type": "story_reply",
-  "chat_uuid": "direct-chat-uuid",
-  "message_uuid": "message-uuid",
-  "sender_uuid": "sender-uuid",
-  "message_type": "text",
-  "story_uuid": "story-uuid",
-  "story_action": "reply"
-}
-```
-
-Muted and archived chat memberships are skipped for message/call push.
-
-### FCM Setup
-
-FCM is disabled by default and must not break local/dev servers without credentials.
-
-Required production env:
-
-```env
-FCM_ENABLED=True
-FCM_PROJECT_ID=your-firebase-project-id
-FIREBASE_CREDENTIALS_PATH=/app/secrets/firebase-service-account.json
-```
-
-Alternative inline credentials:
-
-```env
-FCM_SERVICE_ACCOUNT_JSON={"type":"service_account", "...":"..."}
-```
-
-The service uses Google FCM HTTP v1 through `google-auth`. Direct APNS tokens are stored for future provider support; iOS should normally send an FCM registration token when Firebase Messaging is used.
+- `GET /api/v1/users/me/`
+- `PUT /api/v1/users/me/` JSON or multipart
 
 ## Chats
 
 ### List
 
-`GET /api/chats/`
+`GET /api/v1/chats/`
 
 Returns only chats where the authenticated user is an active member.
 
 ### Create Private Chat
 
-`POST /api/chats/`
+`POST /api/v1/chats/`
 
 ```json
 { "type": "private", "peer_uuid": "user-uuid" }
 ```
 
-Compatibility endpoint: `POST /api/chats/direct/`.
+Compatibility endpoint: `POST /api/v1/chats/direct/`.
 
-### Create Group Chat
+### Messages
 
-`POST /api/chats/`
+- `GET /api/v1/chats/{chat_uuid}/messages/`
+- `POST /api/v1/chats/{chat_uuid}/messages/`
 
-```json
-{
-  "type": "group",
-  "title": "Study group",
-  "description": "Exam prep",
-  "member_uuids": ["user-uuid-1", "user-uuid-2"]
-}
-```
-
-Compatibility endpoint: `POST /api/chats/group/`.
-
-### Detail / Update / Delete
-
-- `GET /api/chats/{chat_uuid}/`
-- `PATCH /api/chats/{chat_uuid}/` group owner/admin only
-- `DELETE /api/chats/{chat_uuid}/` group owner only
-
-### Members
-
-- `POST /api/chats/{chat_uuid}/members/`
-- `DELETE /api/chats/{chat_uuid}/members/{user_uuid}/`
-- `POST /api/chats/{chat_uuid}/admins/`
-- `POST /api/chats/{chat_uuid}/leave/`
-
-Add/promote payload:
-
-```json
-{ "member_uuids": ["user-uuid"] }
-```
-
-or:
-
-```json
-{ "user_uuid": "user-uuid" }
-```
-
-Permissions:
-
-- Non-members cannot read or write.
-- Members can send messages.
-- Admins can update group info and add/remove normal members.
-- Owner can assign admins and delete the group.
-
-## Messages
-
-### List
-
-`GET /api/chats/{chat_uuid}/messages/`
-
-Marks undelivered messages as delivered for the current user.
-
-### Send Text
-
-`POST /api/chats/{chat_uuid}/messages/`
-
-```json
-{
-  "message_type": "text",
-  "text": "Hello",
-  "client_uuid": "client-generated-uuid"
-}
-```
-
-### Send Media
-
-Upload media first, then send message with `attachment_uuids`.
+Send media after upload:
 
 ```json
 {
@@ -323,81 +113,102 @@ Upload media first, then send message with `attachment_uuids`.
 }
 ```
 
-Supported `message_type` values:
-
-- `text`
-- `image`
-- `video`
-- `file`
-- `audio`
-- `video_note`
-- `sticker`
-- `system`
-
-### Reply
-
-```json
-{
-  "message_type": "text",
-  "text": "Answer",
-  "reply_to_uuid": "message-uuid",
-  "client_uuid": "client-generated-uuid"
-}
-```
-
-### Edit
-
-`PATCH /api/chats/{chat_uuid}/messages/{message_uuid}/`
-
-```json
-{ "text": "Updated text" }
-```
-
-Only sender can edit.
-
-### Delete
-
-`DELETE /api/chats/{chat_uuid}/messages/{message_uuid}/`
-
-```json
-{ "delete_for": "me" }
-```
-
-or:
-
-```json
-{ "delete_for": "everyone" }
-```
-
-Only sender can delete for everyone.
-
-### Read Receipts
-
-`POST /api/chats/{chat_uuid}/read/`
-
-```json
-{ "message_uuid": "last-read-message-uuid" }
-```
-
-`message_uuid` is optional. If omitted, all visible messages in the chat are marked read.
+Supported message types: `text`, `image`, `video`, `file`, `audio`, `video_note`, `sticker`, `system`.
 
 ## Media
 
-### Local Upload
+Mobile must not build `/media/...` URLs manually. Use `file_url` and `thumbnail_url` from backend responses.
 
-`POST /api/media/upload-local/` multipart form:
+### Local multipart upload
 
-- `file`
-- `duration_seconds` optional
-- `width` optional
-- `height` optional
-- `waveform_data` optional JSON list for audio messages
+`POST /api/v1/media/upload-local/`
 
-Images are resized/compressed and thumbnails are generated. Videos get a thumbnail if `ffmpeg` is available. Audio metadata can be supplied by the client.
+Content-Type: `multipart/form-data`
+
+Supported fields:
+
+| Field | Required | Notes |
+|---|---:|---|
+| `file` | yes | Binary file. |
+| `is_public` | no | Boolean. Multipart strings like `"false"`, `"0"`, `"true"`, `"1"` are accepted. |
+| `width` | no | Integer. Multipart strings are accepted. |
+| `height` | no | Integer. Multipart strings are accepted. |
+| `duration_seconds` | no | Integer, useful for video/audio. Multipart strings are accepted. |
+| `media_kind` | no | Optional client hint: `image`, `video`, `audio`, `file`. If sent, it must match the detected file type. |
+| `mime_type` | no | Optional content type override, for example `image/jpeg` or `video/mp4`. |
+| `content_type` | no | Alias for `mime_type`. |
+| `original_name` | no | Optional original filename override. |
+| `waveform_data` | no | JSON list for audio messages, for example `[8, 18, 31]`. |
+
+Example image upload:
+
+```http
+POST /api/v1/media/upload-local/
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+
+file=<binary>
+is_public=false
+width=750
+height=429
+mime_type=image/jpeg
+original_name=story-image.jpg
+```
+
+Example video upload:
+
+```http
+POST /api/v1/media/upload-local/
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+
+file=<binary>
+is_public=false
+width=750
+height=429
+duration_seconds=12
+media_kind=video
+mime_type=video/mp4
+original_name=story-video.mp4
+```
+
+Success response: `201 Created`.
+
+```json
+{
+  "uuid": "uploaded-media-uuid",
+  "media_kind": "image",
+  "content_type": "image/jpeg",
+  "original_name": "story-image.jpg",
+  "file_url": "https://akyl-cheshmesi.ru/media/uploads/.../story-image.jpg",
+  "thumbnail_url": "https://akyl-cheshmesi.ru/media/uploads/.../story-image-thumb.webp",
+  "width": 750,
+  "height": 429,
+  "duration_seconds": null,
+  "size": 123456,
+  "size_bytes": 123456,
+  "is_public": false,
+  "status": "uploaded"
+}
+```
+
+Invalid uploads return `400` JSON, not `500`:
+
+```json
+{ "detail": "Unsupported content type: application/x-unknown" }
+```
+
+or serializer errors:
+
+```json
+{ "file": ["No file was submitted."] }
+```
 
 ### S3 Presign
 
-`POST /api/media/presign/`
+`POST /api/v1/media/presign/`
+
+Use this only when `USE_S3=True` and mobile is doing direct-to-S3 upload.
 
 ```json
 {
@@ -411,7 +222,7 @@ Images are resized/compressed and thumbnails are generated. Videos get a thumbna
 
 Complete S3 upload:
 
-`POST /api/media/complete/`
+`POST /api/v1/media/complete/`
 
 ```json
 { "media_uuid": "media-uuid" }
@@ -419,10 +230,15 @@ Complete S3 upload:
 
 ### Download URL
 
-`GET /api/media/{media_uuid}/download/`
+`GET /api/v1/media/{media_uuid}/download/`
+
+```json
+{ "download_url": "https://..." }
+```
 
 Limits are configured through env:
 
+- `MEDIA_MAX_UPLOAD_SIZE_BYTES`
 - `MAX_UPLOAD_SIZE_MB`
 - `IMAGE_MAX_WIDTH`
 - `IMAGE_MAX_HEIGHT`
@@ -430,115 +246,74 @@ Limits are configured through env:
 - `VIDEO_NOTE_MAX_SIZE_MB`
 - `AUDIO_MAX_SIZE_MB`
 
-## Calls
-
-Media stream is WebRTC. Server stores call status/history and relays signaling.
-
-### Create Call
-
-`POST /api/chats/{chat_uuid}/calls/`
-
-```json
-{
-  "call_type": "audio",
-  "metadata": { "device_id": "ios-1", "device_platform": "ios" }
-}
-```
-
-`call_type`: `audio` or `video`.
-
-Response includes:
-
-- `uuid`
-- `chat_uuid`
-- `room_key`
-- `status`
-- `participants`
-
-### Call Actions
-
-- `POST /api/calls/{call_uuid}/accept/`
-- `POST /api/calls/{call_uuid}/decline/`
-- `POST /api/calls/{call_uuid}/reject/` compatibility alias
-- `POST /api/calls/{call_uuid}/end/`
-- `POST /api/calls/{call_uuid}/missed/`
-- `POST /api/calls/{call_uuid}/cancel/` initiator only while ringing
-
-Action payload:
-
-```json
-{
-  "device_id": "ios-1",
-  "device_platform": "ios",
-  "device_name": "iPhone",
-  "metadata": {}
-}
-```
-
-### Call History
-
-- `GET /api/calls/`
-- `GET /api/calls/?chat_uuid={chat_uuid}`
-- `GET /api/calls/?status=missed`
-- `GET /api/calls/{call_uuid}/`
-
-### REST Signaling Fallback
-
-`POST /api/calls/{call_uuid}/signals/`
-
-```json
-{
-  "signal_type": "offer",
-  "target_user_uuid": "optional-user-uuid",
-  "payload": { "sdp": "..." }
-}
-```
-
-`signal_type`: `invite`, `accept`, `decline`, `end`, `missed`, `offer`, `answer`, `ice-candidate`.
-
-Compatibility signal names also accepted:
-
-- `call:offer`
-- `call:answer`
-- `call:ice-candidate`
-- `call_offer`
-- `call_answer`
-- `call_ice`
-
-Call status/event payloads include:
-
-```json
-{
-  "call_uuid": "call-uuid",
-  "chat_uuid": "chat-uuid",
-  "room_key": "call-room-key",
-  "call_type": "audio",
-  "status": "ringing",
-  "initiated_by_uuid": "caller-uuid"
-}
-```
-
 ## Stories
 
-Stories are visible for 24 hours and filtered by active chat relationship.
+Stories are visible for 24 hours and filtered by active chat relationship. Mobile should upload media first, then create story with `media_uuid`.
 
 ### List
 
-`GET /api/stories/`
+`GET /api/v1/stories/`
 
-### Create
+Response:
 
-Image/video story:
+```json
+{
+  "results": [
+    {
+      "uuid": "story-uuid",
+      "media_type": "image",
+      "caption": "optional",
+      "media": {
+        "uuid": "uploaded-media-uuid",
+        "media_kind": "image",
+        "content_type": "image/jpeg",
+        "file_url": "https://...",
+        "thumbnail_url": "https://...",
+        "width": 750,
+        "height": 429,
+        "size_bytes": 123456
+      }
+    }
+  ]
+}
+```
+
+### Create image/video story
+
+`POST /api/v1/stories/`
+
+Image:
 
 ```json
 {
   "media_type": "image",
   "media_uuid": "uploaded-media-uuid",
-  "caption": "Hello"
+  "caption": "optional"
 }
 ```
 
-Text story:
+Video:
+
+```json
+{
+  "media_type": "video",
+  "media_uuid": "uploaded-media-uuid",
+  "caption": "optional"
+}
+```
+
+The backend accepts `media_uuid`. It does not require raw file upload on `/api/v1/stories/`.
+
+Validation rules:
+
+- `media_type=image` requires an uploaded media object with `media_kind=image`.
+- `media_type=video` requires an uploaded media object with `media_kind=video`.
+- Media must belong to the authenticated user.
+- Media must have status `uploaded`.
+
+### Create text story
+
+`POST /api/v1/stories/`
 
 ```json
 {
@@ -550,54 +325,30 @@ Text story:
 
 ### Detail / Delete
 
-- `GET /api/stories/{story_uuid}/`
-- `DELETE /api/stories/{story_uuid}/` author only
+- `GET /api/v1/stories/{story_uuid}/`
+- `DELETE /api/v1/stories/{story_uuid}/` author only
+
+Detail returns the same `media.file_url` and `media.thumbnail_url` contract as list.
 
 ### Viewers
 
-- `POST /api/stories/{story_uuid}/viewers/` mark story viewed
-- `GET /api/stories/{story_uuid}/viewers/` author sees viewers
+- `POST /api/v1/stories/{story_uuid}/viewers/` mark story viewed
+- `GET /api/v1/stories/{story_uuid}/viewers/` author sees viewers
 
 ### Reply
 
-`POST /api/stories/{story_uuid}/reply/`
+`POST /api/v1/stories/{story_uuid}/reply/`
 
 ```json
 { "text": "Nice story" }
 ```
 
-Creates or reuses a direct chat with the story author and returns:
-
-```json
-{
-  "story_uuid": "story-uuid",
-  "chat_uuid": "direct-chat-uuid",
-  "message": {
-    "uuid": "message-uuid",
-    "metadata": {
-      "story_uuid": "story-uuid",
-      "story_action": "reply"
-    }
-  }
-}
-```
-
 ### React
 
-`POST /api/stories/{story_uuid}/react/`
+`POST /api/v1/stories/{story_uuid}/react/`
 
 ```json
 { "emoji": "🔥" }
-```
-
-Creates a direct message with metadata:
-
-```json
-{
-  "story_uuid": "story-uuid",
-  "story_action": "reaction",
-  "reaction": "🔥"
-}
 ```
 
 Cleanup command:
@@ -605,6 +356,19 @@ Cleanup command:
 ```bash
 python manage.py delete_expired_stories
 ```
+
+## Calls
+
+Media stream is WebRTC. Server stores call status/history and relays signaling.
+
+- `POST /api/v1/chats/{chat_uuid}/calls/`
+- `POST /api/v1/calls/{call_uuid}/accept/`
+- `POST /api/v1/calls/{call_uuid}/decline/`
+- `POST /api/v1/calls/{call_uuid}/end/`
+- `POST /api/v1/calls/{call_uuid}/missed/`
+- `POST /api/v1/calls/{call_uuid}/cancel/`
+- `GET /api/v1/calls/`
+- `GET /api/v1/calls/{call_uuid}/`
 
 ## WebSocket
 
@@ -618,142 +382,4 @@ Subscribe to chat before sending chat events:
 
 ```json
 { "type": "subscribe_chat", "chat_uuid": "chat-uuid" }
-```
-
-### Message Events
-
-Client to server:
-
-```json
-{
-  "type": "message:new",
-  "chat_uuid": "chat-uuid",
-  "client_uuid": "client-generated-uuid",
-  "message_type": "text",
-  "text": "Hello"
-}
-```
-
-Server to clients:
-
-```json
-{
-  "type": "message:new",
-  "chat_uuid": "chat-uuid",
-  "payload": {
-    "message": {},
-    "message_uuid": "message-uuid"
-  }
-}
-```
-
-Other message events:
-
-- `message:edit`
-- `message:delete`
-- `message:read`
-- `message:delivered`
-
-Compatibility event names still accepted:
-
-- `chat_message`
-- `message_read`
-- `message_delivered`
-- `typing_start`
-- `typing_stop`
-- `call_offer`
-- `call_answer`
-- `call_ice`
-
-### Typing
-
-```json
-{ "type": "typing:start", "chat_uuid": "chat-uuid", "device_id": "ios-1" }
-```
-
-```json
-{ "type": "typing:stop", "chat_uuid": "chat-uuid", "device_id": "ios-1" }
-```
-
-### Presence
-
-```json
-{ "type": "user:online", "chat_uuid": "chat-uuid", "device_id": "ios-1" }
-```
-
-```json
-{ "type": "user:offline", "chat_uuid": "chat-uuid", "device_id": "ios-1" }
-```
-
-Presence REST:
-
-- `GET /api/presence/{user_uuid}/`
-- `GET /api/presence/?user_uuid={uuid}&user_uuid={uuid2}`
-
-### Calls
-
-Status events:
-
-- `call:invite`
-- `call:accept`
-- `call:decline`
-- `call:end`
-- `call:missed`
-
-WebRTC signaling:
-
-```json
-{
-  "type": "call:offer",
-  "chat_uuid": "chat-uuid",
-  "call_uuid": "call-uuid",
-  "room_key": "room-key",
-  "sdp": "..."
-}
-```
-
-```json
-{
-  "type": "call:answer",
-  "chat_uuid": "chat-uuid",
-  "call_uuid": "call-uuid",
-  "room_key": "room-key",
-  "sdp": "..."
-}
-```
-
-```json
-{
-  "type": "call:ice-candidate",
-  "chat_uuid": "chat-uuid",
-  "call_uuid": "call-uuid",
-  "room_key": "room-key",
-  "candidate": {
-    "candidate": "candidate...",
-    "sdpMid": "0",
-    "sdpMLineIndex": 0
-  }
-}
-```
-
-Join signaling room:
-
-```json
-{
-  "type": "join_call",
-  "chat_uuid": "chat-uuid",
-  "call_uuid": "call-uuid",
-  "room_key": "room-key"
-}
-```
-
-Leave signaling room:
-
-```json
-{
-  "type": "leave_call",
-  "chat_uuid": "chat-uuid",
-  "call_uuid": "call-uuid",
-  "room_key": "room-key"
-}
 ```
