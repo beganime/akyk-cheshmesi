@@ -157,7 +157,7 @@ class MediaPresignAPIView(generics.GenericAPIView):
     throttle_scope = "media_presign"
 
     def post(self, request):
-        if not settings.USE_S3:
+        if not getattr(settings, "USE_S3", False):
             return Response(
                 {
                     "detail": "USE_S3 is disabled. Use /api/v1/media/upload-local/.",
@@ -260,7 +260,7 @@ class MediaCompleteAPIView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not settings.USE_S3:
+        if not getattr(settings, "USE_S3", False):
             return Response(
                 {"detail": "USE_S3 is disabled. This media cannot be completed through S3."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -302,7 +302,7 @@ class LocalMediaUploadAPIView(generics.GenericAPIView):
     throttle_scope = "media_upload"
 
     def post(self, request):
-        if settings.USE_S3:
+        if getattr(settings, "USE_S3", False):
             return Response(
                 {
                     "detail": "USE_S3 is enabled. Use /api/v1/media/presign/ instead.",
@@ -453,7 +453,7 @@ class MediaDownloadAPIView(generics.GenericAPIView):
             return response
 
         if media.storage_provider == UploadedMedia.StorageProvider.S3:
-            if not settings.USE_S3:
+            if not getattr(settings, "USE_S3", False):
                 return Response(
                     {"detail": "USE_S3 is disabled. Download URL is not available."},
                     status=status.HTTP_400_BAD_REQUEST,

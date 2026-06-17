@@ -49,6 +49,7 @@ if env_file.exists():
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="unsafe-dev-key")
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
+USE_S3 = env.bool("USE_S3", default=False)
 
 ALLOWED_HOSTS = env.list(
     "DJANGO_ALLOWED_HOSTS",
