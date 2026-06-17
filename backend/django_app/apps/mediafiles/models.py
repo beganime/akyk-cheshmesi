@@ -25,8 +25,8 @@ class UploadedMedia(UUIDTimeStampedModel):
         on_delete=models.CASCADE,
         related_name="uploaded_media",
     )
-    file = models.FileField(upload_to="uploads/%Y/%m/%d/", null=True, blank=True)
-    thumbnail = models.ImageField(upload_to="uploads/thumbnails/%Y/%m/%d/", null=True, blank=True)
+    file = models.FileField(upload_to="uploads/%Y/%m/%d/", max_length=500, null=True, blank=True)
+    thumbnail = models.ImageField(upload_to="uploads/thumbnails/%Y/%m/%d/", max_length=500, null=True, blank=True)
     original_name = models.CharField(max_length=255)
     content_type = models.CharField(max_length=120, blank=True)
     size = models.PositiveBigIntegerField(default=0)
