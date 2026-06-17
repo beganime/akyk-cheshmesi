@@ -7,6 +7,20 @@ from rest_framework import serializers
 from .models import UploadedMedia
 
 
+class MultipartBooleanField(serializers.BooleanField):
+    TRUE_VALUES = {"true", "1", "yes", "on", "y", "t"}
+    FALSE_VALUES = {"false", "0", "no", "off", "n", "f", ""}
+
+    def to_internal_value(self, data):
+        if isinstance(data, str):
+            normalized = data.strip().lower()
+            if normalized in self.TRUE_VALUES:
+                return True
+            if normalized in self.FALSE_VALUES:
+                return False
+        return super().to_internal_value(data)
+
+
 def build_s3_client():
     import boto3
     from botocore.client import Config as BotoConfig
@@ -106,6 +120,7 @@ def get_uploaded_media_file_url(obj, request=None) -> str | None:
 class UploadedMediaSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
+    size_bytes = serializers.IntegerField(source="size", read_only=True)
 
     class Meta:
         model = UploadedMedia
@@ -114,6 +129,7 @@ class UploadedMediaSerializer(serializers.ModelSerializer):
             "original_name",
             "content_type",
             "size",
+            "size_bytes",
             "media_kind",
             "duration_seconds",
             "width",
@@ -146,6 +162,7 @@ class UploadedMediaSerializer(serializers.ModelSerializer):
 class MediaAttachmentBriefSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
+    size_bytes = serializers.IntegerField(source="size", read_only=True)
 
     class Meta:
         model = UploadedMedia
@@ -154,6 +171,7 @@ class MediaAttachmentBriefSerializer(serializers.ModelSerializer):
             "original_name",
             "content_type",
             "size",
+            "size_bytes",
             "media_kind",
             "duration_seconds",
             "width",
@@ -179,7 +197,7 @@ class MediaPresignRequestSerializer(serializers.Serializer):
     filename = serializers.CharField(max_length=255)
     content_type = serializers.CharField(max_length=120, required=False, allow_blank=True)
     size = serializers.IntegerField(min_value=1)
-    is_public = serializers.BooleanField(required=False, default=False)
+    is_public = MultipartBooleanField(required=False, default=False)
     duration_seconds = serializers.IntegerField(required=False, min_value=1)
     width = serializers.IntegerField(required=False, min_value=1)
     height = serializers.IntegerField(required=False, min_value=1)
@@ -195,10 +213,14 @@ class MediaCompleteSerializer(serializers.Serializer):
 
 class LocalMediaUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
-    is_public = serializers.BooleanField(required=False, default=False)
+    is_public = MultipartBooleanField(required=False, default=False)
     duration_seconds = serializers.IntegerField(required=False, min_value=1)
     width = serializers.IntegerField(required=False, min_value=1)
     height = serializers.IntegerField(required=False, min_value=1)
+    media_kind = serializers.ChoiceField(choices=UploadedMedia.MediaKind.choices, required=False)
+    mime_type = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    content_type = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    original_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
     waveform_data = serializers.JSONField(required=False)
 
     def validate_file(self, value):
@@ -213,6 +235,17 @@ class LocalMediaUploadSerializer(serializers.Serializer):
 
     def validate_waveform_data(self, value):
         return normalize_waveform_data(value)
+
+    def validate(self, attrs):
+        original_name = (attrs.get("original_name") or "").strip()
+        if original_name:
+            attrs["file"].name = original_name
+
+        mime_type = (attrs.get("mime_type") or attrs.get("content_type") or "").strip().lower()
+        if mime_type:
+            setattr(attrs["file"], "content_type", mime_type)
+
+        return attrs
 
 
 def normalize_waveform_data(value):
