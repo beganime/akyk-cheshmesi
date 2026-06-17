@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+<<<<<<< HEAD
   <title>Akyl Cheshmesi - Web Cabinet</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
@@ -87,8 +88,231 @@
         <button class="round-button" type="button" id="videoNoteButton" title="Видеокружочек">●</button>
         <button class="send-button" type="submit" title="Отправить">➤</button>
       </form>
+=======
+  <title>Akyl Cheshmesi — Web</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/latin-400-normal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/latin-500-normal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/latin-600-normal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/fontsource/css/inter@latest/latin-700-normal.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="messenger-body">
+  <main class="messenger-app">
+    <aside class="left-panel chat-sidebar" id="chatSidebar">
+      <div class="top-bar sidebar-head">
+        <button class="add-story-btn-top" id="addStoryButton" type="button" aria-label="Добавить историю" title="Добавить историю">
+          <i class="fa-solid fa-plus"></i>
+        </button>
+        <button class="hamburger icon-button" id="menuToggle" type="button" aria-label="Меню">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="search-wrapper search-box">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input id="chatSearch" class="search-input" type="search" placeholder="Поиск по номеру телефона или @никнейму" autocomplete="off">
+        </div>
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Переключить тему">
+          <i class="fa-solid fa-sun icon-sun"></i>
+          <i class="fa-solid fa-moon icon-moon"></i>
+        </button>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab active" type="button" data-tab="chats">Чаты</button>
+        <button class="tab" type="button" data-tab="contacts">Контакты</button>
+      </div>
+
+      <div class="stories-container stories-strip" id="storiesStrip"></div>
+      <div class="list-container chat-list" id="chatList"></div>
+
+      <div class="drawer-overlay" id="drawerOverlay"></div>
+      <div class="drawer" id="drawer">
+        <div class="drawer-header">
+          <div class="drawer-user">
+            <div class="drawer-avatar" id="drawerAvatar">A</div>
+            <div class="drawer-name" id="drawerName">Akyl Cheshmesi</div>
+            <div class="drawer-phone" id="drawerPhone">—</div>
+            <div class="drawer-username" id="drawerUsername">@user</div>
+          </div>
+          <button class="drawer-close" id="drawerClose" type="button" aria-label="Закрыть">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="drawer-menu">
+          <button class="drawer-item" type="button" data-action="account">
+            <i class="fa-solid fa-user"></i>
+            <span class="drawer-item-text">Мой аккаунт</span>
+          </button>
+          <button class="drawer-item" type="button" data-action="notifications">
+            <i class="fa-solid fa-bell"></i>
+            <span class="drawer-item-text">Уведомления и звуки</span>
+            <span class="toggle-switch active" id="notificationsToggle"></span>
+          </button>
+          <button class="drawer-item" type="button" data-action="privacy">
+            <i class="fa-solid fa-lock"></i>
+            <span class="drawer-item-text">Конфиденциальность</span>
+          </button>
+          <button class="drawer-item" type="button" data-action="chats">
+            <i class="fa-solid fa-message"></i>
+            <span class="drawer-item-text">Настройки чатов</span>
+          </button>
+          <button class="drawer-item" type="button" data-action="folders">
+            <i class="fa-solid fa-folder"></i>
+            <span class="drawer-item-text">Папки с чатами</span>
+          </button>
+          <button class="drawer-item" type="button" data-action="language">
+            <i class="fa-solid fa-globe"></i>
+            <span class="drawer-item-text">Язык</span>
+            <span class="drawer-item-value">Русский</span>
+          </button>
+          <button class="drawer-item" type="button" data-action="theme">
+            <i class="fa-solid fa-palette"></i>
+            <span class="drawer-item-text">Оформление</span>
+            <span class="drawer-item-value" id="currentThemeLabel">Тёмная</span>
+          </button>
+          <div class="drawer-divider"></div>
+          <div class="drawer-scale">
+            <div class="drawer-scale-label">Масштаб по умолчанию</div>
+            <input class="drawer-scale-slider" id="scaleSlider" type="range" min="75" max="150" value="100">
+          </div>
+          <div class="drawer-divider"></div>
+          <button class="drawer-premium" type="button" data-action="premium">
+            <i class="fa-solid fa-star"></i>
+            <span class="drawer-premium-text">Akyl Premium</span>
+          </button>
+          <button class="drawer-item drawer-logout" id="logoutButton" type="button">
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span class="drawer-item-text">Выйти</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <section class="right-panel chat-pane" id="rightPanel">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-state-box">Выберите, кому хотели бы написать</div>
+      </div>
+
+      <div class="chat-view" id="chatView">
+        <header class="chat-header">
+          <button class="icon-button mobile-only" id="backToChats" type="button" aria-label="Назад">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+          <div class="chat-header-avatar avatar" id="activeAvatar">A</div>
+          <div class="chat-header-info chat-title-block">
+            <div class="chat-header-name" id="activeChatTitle">Выберите чат</div>
+            <div class="chat-header-status" id="activeChatStatus">online status появится здесь</div>
+          </div>
+          <div class="chat-header-actions chat-tools">
+            <button class="chat-header-btn icon-button" id="audioCallButton" type="button" aria-label="Аудиозвонок">
+              <i class="fa-solid fa-phone"></i>
+            </button>
+            <button class="chat-header-btn icon-button" id="videoCallButton" type="button" aria-label="Видеозвонок">
+              <i class="fa-solid fa-video"></i>
+            </button>
+            <button class="chat-header-btn icon-button" type="button" aria-label="Меню">
+              <i class="fa-solid fa-ellipsis-vertical"></i>
+            </button>
+          </div>
+        </header>
+
+        <div class="messages-area messages" id="messages"></div>
+
+        <form class="input-area composer" id="messageForm">
+          <div class="input-wrapper">
+            <button class="input-btn icon-button" id="attachButton" type="button" aria-label="Прикрепить">
+              <i class="fa-solid fa-paperclip"></i>
+            </button>
+            <input id="fileInput" type="file" hidden>
+            <textarea class="message-input" id="messageInput" placeholder="Напишите сообщение..." rows="1" autocomplete="off"></textarea>
+            <button class="input-btn icon-button" id="emojiButton" type="button" aria-label="Эмодзи">
+              <i class="fa-regular fa-face-smile"></i>
+            </button>
+            <button class="input-btn icon-button" id="voiceButton" type="button" aria-label="Голосовое">
+              <i class="fa-solid fa-microphone"></i>
+            </button>
+            <button class="input-btn icon-button" id="videoNoteButton" type="button" aria-label="Видеокружок">
+              <i class="fa-solid fa-circle-dot"></i>
+            </button>
+            <button class="input-btn send send-button" id="sendButton" type="submit" aria-label="Отправить">
+              <i class="fa-solid fa-paper-plane"></i>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="story-viewer" id="storyViewer">
+        <div class="story-viewer-content">
+          <div class="story-progress-bar"><div class="story-progress-fill" id="storyProgressFill"></div></div>
+          <div class="story-viewer-header">
+            <div class="story-viewer-avatar" id="storyViewerAvatar">A</div>
+            <div>
+              <div class="story-viewer-name" id="storyViewerName">История</div>
+              <div class="story-viewer-time" id="storyViewerTime">сейчас</div>
+            </div>
+            <button class="story-viewer-close" id="storyViewerClose" type="button">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div class="story-viewer-body">
+            <img class="story-viewer-image" id="storyViewerImage" alt="">
+            <video class="story-viewer-image" id="storyViewerVideo" controls playsinline></video>
+            <div class="story-text" id="storyViewerText">История</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="add-story-modal" id="addStoryModal">
+        <div class="add-story-modal-content">
+          <div class="add-story-modal-header">
+            <div class="add-story-modal-title">Новая история</div>
+            <button class="add-story-modal-close" id="addStoryModalClose" type="button">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <div class="add-story-modal-body">
+            <div class="image-upload-area" id="imageUploadArea">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span>Нажмите, чтобы загрузить фото или видео</span>
+              <img id="imagePreview" alt="">
+              <video id="videoPreview" muted playsinline></video>
+              <button class="remove-image" id="removeImageButton" type="button">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <input type="file" id="storyFileInput" accept="image/*,video/*" hidden>
+            <textarea class="story-text-input" id="storyTextInput" placeholder="Добавьте текст к истории..."></textarea>
+          </div>
+          <div class="add-story-modal-footer">
+            <button class="btn-secondary" id="cancelStoryButton" type="button">Отмена</button>
+            <button class="btn-primary" id="publishStoryButton" type="button">
+              <i class="fa-solid fa-paper-plane"></i>
+              Опубликовать
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" id="callModal">
+        <div class="modal-content">
+          <div class="modal-avatar">
+            <span id="callModalAvatar">A</span>
+            <div class="pulse-ring"></div>
+            <div class="pulse-ring"></div>
+          </div>
+          <div class="modal-title" id="callModalTitle">Установка защищенного соединения...</div>
+          <div class="modal-subtitle" id="callModalSubtitle">Пожалуйста, подождите</div>
+          <button class="modal-close-btn" id="callModalClose" type="button">
+            <i class="fa-solid fa-phone-slash"></i>
+          </button>
+        </div>
+      </div>
+>>>>>>> d91a3b0b2ceacecc762eb4290b1fd95049711286
     </section>
   </main>
+
+  <div class="toast" id="toast"></div>
   <script src="/app.js"></script>
 </body>
 </html>

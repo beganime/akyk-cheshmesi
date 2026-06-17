@@ -9,8 +9,13 @@ class AppReleaseListAPIView(generics.ListAPIView):
     serializer_class = AppReleaseSerializer
 
     def get_queryset(self):
-        queryset = AppRelease.objects.filter(is_active=True)
+        queryset = AppRelease.objects.filter(is_active=True, is_public=True)
         platform = self.request.query_params.get("platform", "").strip().lower()
+        channel = self.request.query_params.get("channel", "").strip().lower()
+
         if platform:
-            queryset = queryset.filter(available_platforms__contains=[platform])
+            queryset = queryset.filter(platform=platform)
+        if channel:
+            queryset = queryset.filter(channel=channel)
+
         return queryset

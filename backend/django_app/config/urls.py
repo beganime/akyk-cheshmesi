@@ -19,6 +19,7 @@ urlpatterns = [
     path("api/v1/", include("apps.knowledge_base.urls")),
     path("api/v1/", include("apps.bots.urls")),
     path("api/v1/", include("apps.releases.urls")),
+    path("api/v1/", include("apps.website.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/common/", include("apps.common.urls")),
@@ -33,6 +34,7 @@ urlpatterns = [
     path("api/", include("apps.knowledge_base.urls")),
     path("api/", include("apps.bots.urls")),
     path("api/", include("apps.releases.urls")),
+    path("api/", include("apps.website.urls")),
 ]
 
 if settings.DEBUG:

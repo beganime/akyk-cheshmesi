@@ -1,4 +1,4 @@
-from django.urls import reverse_lazy
+﻿from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
 from pathlib import Path
@@ -95,6 +95,7 @@ INSTALLED_APPS = [
     "apps.complaints.apps.ComplaintsConfig",
     "apps.bots.apps.BotsConfig",
     "apps.releases.apps.ReleasesConfig",
+    "apps.website.apps.WebsiteConfig",
 ]
 
 MIDDLEWARE = [
@@ -134,7 +135,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
             ],
         },
-    },
+    }
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
@@ -330,49 +331,71 @@ REST_FRAMEWORK = {
         "stories_create": "60/hour",
         "bots": "120/hour",
         "bot_send_message": "240/hour",
+        "website_support": "20/hour",
     },
 }
 
 SIMPLE_JWT = {
-    "ALGORITHM": "HS256",
-    "SIGNING_KEY": env("JWT_SECRET", default=SECRET_KEY),
-    "ACCESS_TOKEN_LIFETIME": timedelta(
-        minutes=env.int("ACCESS_TOKEN_LIFETIME_MINUTES", default=15)
-    ),
-    "REFRESH_TOKEN_LIFETIME": timedelta(
-        days=env.int("REFRESH_TOKEN_LIFETIME_DAYS", default=14)
-    ),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
-    "AUTH_HEADER_TYPES": ("Bearer",),
-    "UPDATE_LAST_LOGIN": True,
 }
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Akyl Cheshmesi API",
-    "DESCRIPTION": "Core backend API for Akyl Cheshmesi messenger",
-    "VERSION": "0.1.0",
+    "DESCRIPTION": "Backend API for Akyl Cheshmesi messenger",
+    "VERSION": "1.0.0",
 }
 
-CORS_ALLOWED_ORIGINS = env.list(
-    "DJANGO_CORS_ALLOWED_ORIGINS",
-    default=[
-        "http://127.0.0.1:3000",
-        "http://localhost:3000",
-        "http://localhost:8081",
-        "https://akyl-cheshmesi.ru",
-        "https://www.akyl-cheshmesi.ru",
-        "https://akylcheshmesi.ru",
-        "https://www.akylcheshmesi.ru",
-    ],
+UNFOLD = {
+    "SITE_TITLE": "Akyl Cheshmesi Admin",
+    "SITE_HEADER": "Akyl Cheshmesi",
+    "SITE_URL": "/",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+}
+
+def _unique_origins(*origin_groups):
+    seen = set()
+    result = []
+    for origins in origin_groups:
+        for origin in origins:
+            normalized = str(origin).strip().rstrip("/")
+            if normalized and normalized not in seen:
+                seen.add(normalized)
+                result.append(normalized)
+    return result
+
+
+CORS_ALLOWED_ORIGINS = _unique_origins(
+    env.list("CORS_ALLOWED_ORIGINS", default=[]),
+    env.list("DJANGO_CORS_ALLOWED_ORIGINS", default=[]),
 )
+
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = _unique_origins(
+        CORS_ALLOWED_ORIGINS,
+        [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:8080",
+            "http://127.0.0.1:8080",
+            "http://localhost:8081",
+            "http://127.0.0.1:8081",
+            "http://localhost:8082",
+            "http://127.0.0.1:8082",
+            "http://localhost:19006",
+            "http://127.0.0.1:19006",
+        ],
+    )
+CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = env.list(
-    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    "CSRF_TRUSTED_ORIGINS",
     default=[
-        "http://127.0.0.1:3000",
-        "http://localhost:3000",
-        "http://localhost:8081",
         "https://akyl-cheshmesi.ru",
         "https://www.akyl-cheshmesi.ru",
         "https://akylcheshmesi.ru",
@@ -380,287 +403,28 @@ CSRF_TRUSTED_ORIGINS = env.list(
     ],
 )
 
-CELERY_BROKER_URL = env("REDIS_BROKER_URL", default="redis://127.0.0.1:6379/1")
-CELERY_RESULT_BACKEND = CELERY_BROKER_URL
-CELERY_TASK_DEFAULT_QUEUE = "default"
-CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 300
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = TIME_ZONE
+SECURE_COOKIES = env.bool("SECURE_COOKIES", default=False)
+ENABLE_SECURITY_HEADERS = env.bool("ENABLE_SECURITY_HEADERS", default=True)
+SESSION_COOKIE_SECURE = SECURE_COOKIES
+CSRF_COOKIE_SECURE = SECURE_COOKIES
+SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
 
-REDIS_PROFILE_TTL_SECONDS = env.int("REDIS_PROFILE_TTL_SECONDS", default=86400)
-REDIS_CHAT_TTL_SECONDS = env.int("REDIS_CHAT_TTL_SECONDS", default=86400)
-REDIS_HISTORY_LIST_LIMIT = env.int("REDIS_HISTORY_LIST_LIMIT", default=50)
-REDIS_HISTORY_TTL_SECONDS = env.int("REDIS_HISTORY_TTL_SECONDS", default=604800)
-REDIS_PRESENCE_TTL_SECONDS = env.int("REDIS_PRESENCE_TTL_SECONDS", default=90)
-REDIS_STREAM_MESSAGES_KEY = env("REDIS_STREAM_MESSAGES_KEY", default="stream:messages")
-
-REDIS_STREAM_MESSAGES_GROUP = env("REDIS_STREAM_MESSAGES_GROUP", default="message-savers")
-REDIS_STREAM_DLQ_KEY = env("REDIS_STREAM_DLQ_KEY", default="stream:messages:dlq")
-REDIS_STREAM_READ_COUNT = env.int("REDIS_STREAM_READ_COUNT", default=20)
-REDIS_STREAM_BLOCK_MS = env.int("REDIS_STREAM_BLOCK_MS", default=5000)
-REDIS_STREAM_CLAIM_IDLE_MS = env.int("REDIS_STREAM_CLAIM_IDLE_MS", default=60000)
-
-REDIS_STREAM_MESSAGE_STATUS_KEY = env(
-    "REDIS_STREAM_MESSAGE_STATUS_KEY",
-    default="stream:message-statuses",
-)
-REDIS_STREAM_MESSAGE_STATUS_GROUP = env(
-    "REDIS_STREAM_MESSAGE_STATUS_GROUP",
-    default="message-status-savers",
-)
-REDIS_STREAM_MESSAGE_STATUS_DLQ_KEY = env(
-    "REDIS_STREAM_MESSAGE_STATUS_DLQ_KEY",
-    default="stream:message-statuses:dlq",
-)
-REDIS_REALTIME_EVENTS_CHANNEL = env(
-    "REDIS_REALTIME_EVENTS_CHANNEL",
-    default="realtime:events",
-)
-
-AUTHENTICATION_BACKENDS = [
-    "django.contrib.auth.backends.ModelBackend",
-]
+if ENABLE_SECURITY_HEADERS:
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+    X_FRAME_OPTIONS = "DENY"
 
 EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
-    default="django.core.mail.backends.console.EmailBackend"
-    if DEBUG
-    else "django.core.mail.backends.smtp.EmailBackend",
+    default="django.core.mail.backends.smtp.EmailBackend",
 )
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="priem@stud-life.com")
-EMAIL_HOST = env("EMAIL_HOST", default="smtp.yandex.ru")
+EMAIL_HOST = env("EMAIL_HOST", default="smtp.mail.ru")
 EMAIL_PORT = env.int("EMAIL_PORT", default=465)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=True)
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
 EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default=EMAIL_HOST_USER or "noreply@akyl-cheshmesi.ru")
 
-SECURE_COOKIES = env.bool("SECURE_COOKIES", default=False)
-ENABLE_SECURITY_HEADERS = env.bool("ENABLE_SECURITY_HEADERS", default=True)
 
-SESSION_COOKIE_SECURE = SECURE_COOKIES
-CSRF_COOKIE_SECURE = SECURE_COOKIES
-SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = False
-SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
-
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = "DENY"
-SECURE_REFERRER_POLICY = "same-origin"
-
-if not DEBUG and ENABLE_SECURITY_HEADERS:
-    SECURE_HSTS_SECONDS = 31536000
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
-else:
-    SECURE_HSTS_SECONDS = 0
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-    SECURE_HSTS_PRELOAD = False
-    SECURE_SSL_REDIRECT = False
-
-USE_S3 = env.bool("USE_S3", default=False)
-
-if USE_S3:
-    AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
-    AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL")
-    AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="")
-    AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
-    AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
-    AWS_S3_CUSTOM_DOMAIN = env("AWS_S3_CUSTOM_DOMAIN", default="")
-    AWS_S3_PUBLIC_READ = env.bool("AWS_S3_PUBLIC_READ", default=False)
-    AWS_QUERYSTRING_AUTH = env.bool(
-        "AWS_QUERYSTRING_AUTH",
-        default=not AWS_S3_PUBLIC_READ,
-    )
-    AWS_S3_PRESIGNED_GET_EXPIRES = env.int("AWS_S3_PRESIGNED_GET_EXPIRES", default=3600)
-    AWS_DEFAULT_ACL = "public-read" if AWS_S3_PUBLIC_READ else None
-    AWS_S3_FILE_OVERWRITE = False
-
-    aws_s3_verify_raw = env("AWS_S3_VERIFY", default="").strip()
-    if aws_s3_verify_raw.lower() in {"false", "0", "no"}:
-        AWS_S3_VERIFY = False
-    else:
-        AWS_S3_VERIFY = aws_s3_verify_raw or None
-
-    STORAGES = {
-        "default": {
-            "BACKEND": "storages.backends.s3.S3Storage",
-            "OPTIONS": {
-                "bucket_name": AWS_STORAGE_BUCKET_NAME,
-                "endpoint_url": AWS_S3_ENDPOINT_URL,
-                "region_name": AWS_S3_REGION_NAME,
-                "access_key": AWS_ACCESS_KEY_ID,
-                "secret_key": AWS_SECRET_ACCESS_KEY,
-                "default_acl": AWS_DEFAULT_ACL,
-                "querystring_auth": AWS_QUERYSTRING_AUTH,
-                "file_overwrite": AWS_S3_FILE_OVERWRITE,
-                "custom_domain": AWS_S3_CUSTOM_DOMAIN or None,
-                "verify": AWS_S3_VERIFY,
-            },
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-        },
-    }
-else:
-    STORAGES = {
-        "default": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-            "OPTIONS": {
-                "location": MEDIA_ROOT,
-                "base_url": MEDIA_URL,
-            },
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-        },
-    }
-
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "verbose",
-        },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": "INFO",
-    },
-}
-
-UNFOLD = {
-    "SITE_TITLE": "Akyl Cheshmesi Admin",
-    "SITE_HEADER": "Akyl Cheshmesi",
-    "SITE_SUBHEADER": "Operations & Content",
-    "SITE_URL": "/",
-    "SITE_SYMBOL": "forum",
-    "SHOW_HISTORY": True,
-    "SHOW_VIEW_ON_SITE": False,
-    "SHOW_BACK_BUTTON": False,
-    "ENVIRONMENT": "config.admin_ui.environment_callback",
-    "DASHBOARD_CALLBACK": "config.admin_ui.dashboard_callback",
-    "BORDER_RADIUS": "10px",
-    "SIDEBAR": {
-        "show_search": True,
-        "command_search": False,
-        "show_all_applications": False,
-        "navigation": [
-            {
-                "title": _("Overview"),
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {
-                        "title": _("Dashboard"),
-                        "icon": "dashboard",
-                        "link": reverse_lazy("admin:index"),
-                    },
-                ],
-            },
-            {
-                "title": _("Messaging"),
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {
-                        "title": _("Users"),
-                        "icon": "group",
-                        "link": reverse_lazy("admin:users_user_changelist"),
-                    },
-                    {
-                        "title": _("Chats"),
-                        "icon": "forum",
-                        "link": reverse_lazy("admin:chats_chat_changelist"),
-                    },
-                    {
-                        "title": _("Messages"),
-                        "icon": "chat",
-                        "link": reverse_lazy("admin:messaging_message_changelist"),
-                    },
-                    {
-                        "title": _("Bot commands"),
-                        "icon": "smart_toy",
-                        "link": reverse_lazy("admin:bots_botcommand_changelist"),
-                    },
-                    {
-                        "title": _("Calls"),
-                        "icon": "call",
-                        "link": reverse_lazy("admin:calls_callsession_changelist"),
-                    },
-                ],
-            },
-            {
-                "title": _("Applications"),
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {
-                        "title": _("Releases"),
-                        "icon": "system_update",
-                        "link": reverse_lazy("admin:releases_apprelease_changelist"),
-                    },
-                ],
-            },
-            {
-                "title": _("Content"),
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {
-                        "title": _("Knowledge categories"),
-                        "icon": "category",
-                        "link": reverse_lazy("admin:knowledge_base_knowledgebasecategory_changelist"),
-                    },
-                    {
-                        "title": _("Knowledge articles"),
-                        "icon": "menu_book",
-                        "link": reverse_lazy("admin:knowledge_base_knowledgebasearticle_changelist"),
-                    },
-                    {
-                        "title": _("Sticker packs"),
-                        "icon": "mood",
-                        "link": reverse_lazy("admin:stickers_stickerpack_changelist"),
-                    },
-                    {
-                        "title": _("Uploads"),
-                        "icon": "folder",
-                        "link": reverse_lazy("admin:mediafiles_uploadedmedia_changelist"),
-                        "badge": "config.admin_ui.media_pending_badge_callback",
-                        "badge_variant": "warning",
-                        "badge_style": "solid",
-                    },
-                ],
-            },
-            {
-                "title": _("Moderation"),
-                "separator": True,
-                "collapsible": True,
-                "items": [
-                    {
-                        "title": _("Complaints"),
-                        "icon": "report",
-                        "link": reverse_lazy("admin:complaints_complaint_changelist"),
-                        "badge": "config.admin_ui.complaints_badge_callback",
-                        "badge_variant": "danger",
-                        "badge_style": "solid",
-                    },
-                ],
-            },
-        ],
-    },
-}
