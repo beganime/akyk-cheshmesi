@@ -1,8 +1,10 @@
 import json
+from datetime import timedelta
 from typing import Any
 
 import redis
 from django.conf import settings
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import CallEvent, CallLog, CallParticipant, CallSession, CallSignal
@@ -13,6 +15,110 @@ ACTIVE_CALL_STATUSES = {
     CallSession.Status.RINGING,
     CallSession.Status.ACCEPTED,
 }
+DEFAULT_CALL_MAX_DURATION_SECONDS = 60 * 60
+
+
+def get_call_max_duration_seconds() -> int:
+    configured_value = getattr(
+        settings,
+        "CALL_MAX_DURATION_SECONDS",
+        DEFAULT_CALL_MAX_DURATION_SECONDS,
+    )
+
+    try:
+        max_duration_seconds = int(configured_value)
+    except (TypeError, ValueError):
+        return DEFAULT_CALL_MAX_DURATION_SECONDS
+
+    if max_duration_seconds <= 0:
+        return DEFAULT_CALL_MAX_DURATION_SECONDS
+
+    return max_duration_seconds
+
+
+def is_call_session_expired(session: CallSession, now=None) -> bool:
+    if session.status not in ACTIVE_CALL_STATUSES:
+        return False
+
+    now = now or timezone.now()
+    base_time = session.answered_at or session.created_at
+    return now - base_time >= timedelta(seconds=get_call_max_duration_seconds())
+
+
+def expire_stale_active_calls(*, chat=None, session: CallSession | None = None) -> int:
+    now = timezone.now()
+    cutoff = now - timedelta(seconds=get_call_max_duration_seconds())
+
+    queryset = CallSession.objects.select_related("chat", "initiated_by").prefetch_related(
+        "participants",
+    )
+
+    if chat is not None:
+        queryset = queryset.filter(chat=chat)
+    if session is not None:
+        queryset = queryset.filter(pk=session.pk)
+
+    queryset = queryset.filter(status__in=ACTIVE_CALL_STATUSES).filter(
+        Q(answered_at__isnull=False, answered_at__lte=cutoff)
+        | Q(answered_at__isnull=True, created_at__lte=cutoff)
+    )
+
+    expired_count = 0
+    max_duration_seconds = get_call_max_duration_seconds()
+
+    for stale_session in queryset.iterator():
+        previous_status = stale_session.status
+        target_status = (
+            CallSession.Status.ENDED
+            if stale_session.status == CallSession.Status.ACCEPTED
+            else CallSession.Status.MISSED
+        )
+        base_time = stale_session.answered_at or stale_session.created_at
+        duration_seconds = max(int((now - base_time).total_seconds()), 0)
+
+        stale_session.status = target_status
+        stale_session.ended_at = now
+        stale_session.duration_seconds = duration_seconds
+        stale_session.save(update_fields=["status", "ended_at", "duration_seconds", "updated_at"])
+
+        for participant in stale_session.participants.all():
+            if participant.status == CallParticipant.Status.JOINED:
+                if participant.joined_at and not participant.left_at:
+                    participant.left_at = now
+                    participant.duration_seconds = max(
+                        int((now - participant.joined_at).total_seconds()),
+                        0,
+                    )
+                participant.status = CallParticipant.Status.LEFT
+                participant.save(update_fields=["status", "left_at", "duration_seconds", "updated_at"])
+                continue
+
+            if participant.status in {
+                CallParticipant.Status.INVITED,
+                CallParticipant.Status.RINGING,
+            }:
+                participant.status = CallParticipant.Status.MISSED
+                participant.left_at = now
+                participant.save(update_fields=["status", "left_at", "updated_at"])
+
+        CallLog.objects.create(
+            session=stale_session,
+            action="call_auto_expired",
+            status_from=previous_status,
+            status_to=target_status,
+            duration_seconds=duration_seconds,
+            payload={"max_duration_seconds": max_duration_seconds},
+        )
+        expired_count += 1
+
+    return expired_count
+
+
+def ensure_call_session_not_expired(session: CallSession) -> CallSession:
+    if is_call_session_expired(session):
+        expire_stale_active_calls(session=session)
+        session.refresh_from_db()
+    return session
 
 
 def get_realtime_redis_url() -> str:
