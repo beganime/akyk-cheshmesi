@@ -97,7 +97,8 @@ class UserMeSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data["avatar"] = build_private_file_url(getattr(instance, "avatar", None))
+        request = self.context.get("request")
+        data["avatar"] = build_private_file_url(getattr(instance, "avatar", None), request=request)
         return data
 
 
@@ -121,7 +122,8 @@ class UserAuthResponseSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data["avatar"] = build_private_file_url(getattr(instance, "avatar", None))
+        request = self.context.get("request")
+        data["avatar"] = build_private_file_url(getattr(instance, "avatar", None), request=request)
         return data
 
 
@@ -153,5 +155,6 @@ class UserSearchSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data["avatar"] = build_private_file_url(getattr(instance, "avatar", None))
+        request = self.context.get("request")
+        data["avatar"] = build_private_file_url(getattr(instance, "avatar", None), request=request)
         return data
