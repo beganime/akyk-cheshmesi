@@ -66,7 +66,7 @@ def expire_stale_active_calls(*, chat=None, session: CallSession | None = None) 
     expired_count = 0
     max_duration_seconds = get_call_max_duration_seconds()
 
-    for stale_session in queryset.iterator():
+    for stale_session in queryset.iterator(chunk_size=100):
         previous_status = stale_session.status
         target_status = (
             CallSession.Status.ENDED
