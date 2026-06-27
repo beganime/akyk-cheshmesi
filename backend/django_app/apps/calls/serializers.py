@@ -7,7 +7,7 @@ from apps.users.push_services import dispatch_call_push
 from apps.users.public_serializers import UserShortSerializer
 
 from .models import CallEvent, CallLog, CallParticipant, CallSession, CallSignal
-from .services import ACTIVE_CALL_STATUSES, create_call_event
+from .services import ACTIVE_CALL_STATUSES, create_call_event, expire_stale_active_calls
 
 
 class CallParticipantSerializer(serializers.ModelSerializer):
@@ -140,6 +140,9 @@ class CallCreateSerializer(serializers.Serializer):
         ).first()
         if not membership:
             raise serializers.ValidationError("You are not a member of this chat")
+
+        # Prevent old ringing/accepted calls from blocking a new call forever.
+        expire_stale_active_calls(chat=chat)
 
         active_call_exists = CallSession.objects.filter(
             chat=chat,

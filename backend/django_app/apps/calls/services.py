@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from typing import Any
 
 import redis
@@ -13,6 +14,9 @@ ACTIVE_CALL_STATUSES = {
     CallSession.Status.RINGING,
     CallSession.Status.ACCEPTED,
 }
+
+CALL_MAX_DURATION_SECONDS = int(getattr(settings, "CALL_MAX_DURATION_SECONDS", 60 * 60))
+CALL_PENDING_TIMEOUT_SECONDS = int(getattr(settings, "CALL_PENDING_TIMEOUT_SECONDS", 2 * 60))
 
 
 def get_realtime_redis_url() -> str:
@@ -134,10 +138,15 @@ def create_call_signal(
     return signal
 
 
-def finalize_call_session(session: CallSession, status: str) -> CallSession:
-    now = timezone.now()
+def _call_duration_seconds(session: CallSession, ended_at=None) -> int:
+    finished_at = ended_at or timezone.now()
     base_time = session.answered_at or session.created_at
-    duration_seconds = max(int((now - base_time).total_seconds()), 0)
+    return max(int((finished_at - base_time).total_seconds()), 0)
+
+
+def finalize_call_session(session: CallSession, status: str, ended_at=None) -> CallSession:
+    now = ended_at or timezone.now()
+    duration_seconds = _call_duration_seconds(session, now)
 
     previous_status = session.status
     session.status = status
@@ -155,11 +164,104 @@ def finalize_call_session(session: CallSession, status: str) -> CallSession:
     return session
 
 
-def finalize_participant_if_joined(participant: CallParticipant) -> CallParticipant:
+def finalize_participant_if_joined(participant: CallParticipant, left_at=None) -> CallParticipant:
     if participant.joined_at and not participant.left_at:
-        now = timezone.now()
+        now = left_at or timezone.now()
         participant.left_at = now
         participant.status = CallParticipant.Status.LEFT
         participant.duration_seconds = max(int((now - participant.joined_at).total_seconds()), 0)
         participant.save(update_fields=["left_at", "status", "duration_seconds", "updated_at"])
     return participant
+
+
+def _finish_expired_session(session: CallSession, status: str, ended_at) -> None:
+    session = finalize_call_session(session, status, ended_at=ended_at)
+
+    for participant in session.participants.all():
+        if participant.status == CallParticipant.Status.JOINED:
+            finalize_participant_if_joined(participant, left_at=ended_at)
+        elif participant.status in {
+            CallParticipant.Status.INVITED,
+            CallParticipant.Status.RINGING,
+        }:
+            participant.status = CallParticipant.Status.MISSED
+            participant.left_at = ended_at
+            participant.save(update_fields=["status", "left_at", "updated_at"])
+
+    create_call_event(
+        session=session,
+        event_type="call:auto-end",
+        actor=None,
+        payload={
+            "reason": "expired",
+            "max_duration_seconds": CALL_MAX_DURATION_SECONDS,
+            "pending_timeout_seconds": CALL_PENDING_TIMEOUT_SECONDS,
+        },
+        publish=True,
+    )
+
+
+def expire_stale_active_calls(*, chat=None, user=None, now=None) -> int:
+    """Close stale call sessions before they block new calls or stay open forever.
+
+    Accepted calls are limited to CALL_MAX_DURATION_SECONDS (default: 1 hour).
+    Pending/ringing calls are closed after CALL_PENDING_TIMEOUT_SECONDS (default: 2 minutes).
+    """
+    current_time = now or timezone.now()
+    expired_count = 0
+
+    active_queryset = CallSession.objects.select_related("chat", "initiated_by").prefetch_related("participants")
+    if chat is not None:
+        active_queryset = active_queryset.filter(chat=chat)
+    if user is not None:
+        active_queryset = active_queryset.filter(participants__user=user)
+
+    accepted_cutoff = current_time - timedelta(seconds=CALL_MAX_DURATION_SECONDS)
+    accepted_sessions = (
+        active_queryset.filter(
+            status=CallSession.Status.ACCEPTED,
+            answered_at__isnull=False,
+            answered_at__lte=accepted_cutoff,
+            ended_at__isnull=True,
+        )
+        .distinct()
+        .order_by("created_at")
+    )
+
+    for session in accepted_sessions:
+        expire_at = session.answered_at + timedelta(seconds=CALL_MAX_DURATION_SECONDS)
+        _finish_expired_session(session, CallSession.Status.ENDED, expire_at)
+        expired_count += 1
+
+    stuck_accepted_sessions = (
+        active_queryset.filter(
+            status=CallSession.Status.ACCEPTED,
+            answered_at__isnull=True,
+            created_at__lte=accepted_cutoff,
+            ended_at__isnull=True,
+        )
+        .distinct()
+        .order_by("created_at")
+    )
+
+    for session in stuck_accepted_sessions:
+        expire_at = session.created_at + timedelta(seconds=CALL_MAX_DURATION_SECONDS)
+        _finish_expired_session(session, CallSession.Status.ENDED, expire_at)
+        expired_count += 1
+
+    pending_cutoff = current_time - timedelta(seconds=CALL_PENDING_TIMEOUT_SECONDS)
+    pending_sessions = (
+        active_queryset.filter(
+            status__in=[CallSession.Status.REQUESTED, CallSession.Status.RINGING],
+            created_at__lte=pending_cutoff,
+            ended_at__isnull=True,
+        )
+        .distinct()
+        .order_by("created_at")
+    )
+
+    for session in pending_sessions:
+        _finish_expired_session(session, CallSession.Status.MISSED, current_time)
+        expired_count += 1
+
+    return expired_count
