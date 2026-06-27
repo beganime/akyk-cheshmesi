@@ -24,12 +24,18 @@ def build_s3_client():
     )
 
 
-def make_absolute_media_url(url: str | None) -> str | None:
+def make_absolute_media_url(url: str | None, request=None) -> str | None:
     if not url:
         return None
 
     if url.startswith("http://") or url.startswith("https://"):
         return url
+
+    if request is not None:
+        try:
+            return request.build_absolute_uri(url)
+        except Exception:
+            pass
 
     base_url = getattr(settings, "PUBLIC_MEDIA_BASE_URL", "") or ""
     base_url = base_url.rstrip("/")
@@ -42,7 +48,7 @@ def make_absolute_media_url(url: str | None) -> str | None:
     return url
 
 
-def build_private_file_url(file_field) -> str | None:
+def build_private_file_url(file_field, request=None) -> str | None:
     if not file_field:
         return None
 
@@ -68,10 +74,10 @@ def build_private_file_url(file_field) -> str | None:
             pass
 
     try:
-        return make_absolute_media_url(file_field.url)
+        return make_absolute_media_url(file_field.url, request=request)
     except Exception:
         try:
-            return make_absolute_media_url(file_field.storage.url(name))
+            return make_absolute_media_url(file_field.storage.url(name), request=request)
         except Exception:
             return None
 
@@ -101,5 +107,6 @@ class UserShortSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        data["avatar"] = build_private_file_url(getattr(instance, "avatar", None))
+        request = self.context.get("request")
+        data["avatar"] = build_private_file_url(getattr(instance, "avatar", None), request=request)
         return data
