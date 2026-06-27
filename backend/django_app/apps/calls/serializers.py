@@ -7,7 +7,7 @@ from apps.users.push_services import dispatch_call_push
 from apps.users.public_serializers import UserShortSerializer
 
 from .models import CallEvent, CallLog, CallParticipant, CallSession, CallSignal
-from .services import ACTIVE_CALL_STATUSES, create_call_event
+from .services import ACTIVE_CALL_STATUSES, create_call_event, expire_stale_active_calls
 
 
 class CallParticipantSerializer(serializers.ModelSerializer):
@@ -140,6 +140,11 @@ class CallCreateSerializer(serializers.Serializer):
         ).first()
         if not membership:
             raise serializers.ValidationError("You are not a member of this chat")
+
+        # A mobile client can be killed before it sends /end/. Before rejecting a
+        # new call, close any active session in this chat that has exceeded the
+        # server-side one hour limit.
+        expire_stale_active_calls(chat=chat)
 
         active_call_exists = CallSession.objects.filter(
             chat=chat,
