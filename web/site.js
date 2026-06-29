@@ -6,6 +6,14 @@
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
+  function injectExtraStyles() {
+    if (document.querySelector('link[href="/landing-extra.css"]')) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/landing-extra.css';
+    document.head.appendChild(link);
+  }
+
   const text = (selector, value) => {
     const node = document.querySelector(selector);
     if (node && value !== undefined && value !== null && String(value).trim()) {
@@ -38,18 +46,22 @@
     .toUpperCase();
 
   function renderLogo(settings) {
-    const logo = document.querySelector('[data-site-logo]');
-    if (!logo) return;
+    const logos = document.querySelectorAll('[data-site-logo]');
+    if (!logos.length) return;
 
     const logoUrl = settings.logo_file_url || settings.logo_url;
     if (logoUrl) {
-      logo.innerHTML = `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(settings.company_name || 'Akyl Cheshmesi')}">`;
+      logos.forEach((logo) => {
+        logo.innerHTML = `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(settings.company_name || 'Akyl Cheshmesi')}">`;
+      });
       return;
     }
 
     const staticLogo = new Image();
     staticLogo.onload = () => {
-      logo.innerHTML = '<img src="/assets/akyl-logo.png" alt="Akyl Cheshmesi">';
+      logos.forEach((logo) => {
+        logo.innerHTML = '<img src="/assets/akyl-logo.png" alt="Akyl Cheshmesi">';
+      });
     };
     staticLogo.src = '/assets/akyl-logo.png';
   }
@@ -171,6 +183,7 @@
     items.forEach((item) => observer.observe(item));
   }
 
+  injectExtraStyles();
   loadWebsiteContent();
   loadReleases();
   bindSupportForm();
