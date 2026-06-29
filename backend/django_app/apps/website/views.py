@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -10,6 +11,14 @@ from .serializers import (
     SupportRequestCreateSerializer,
 )
 
+User = get_user_model()
+
+PUBLIC_BUSINESS_METRICS = {
+    "countries": 16,
+    "happy_clients": 1200,
+    "translated_documents": 2000,
+}
+
 
 class PublicSiteContentAPIView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -17,11 +26,19 @@ class PublicSiteContentAPIView(APIView):
     def get(self, request):
         settings = SiteSettings.objects.filter(is_published=True).order_by("-updated_at").first()
         team = CompanyTeamMember.objects.filter(is_active=True)
+        registered_users = User.objects.filter(
+            is_active=True,
+            registration_completed=True,
+        ).count()
 
         return Response(
             {
                 "settings": SiteSettingsSerializer(settings, context={"request": request}).data if settings else None,
                 "team": CompanyTeamMemberSerializer(team, many=True, context={"request": request}).data,
+                "metrics": {
+                    **PUBLIC_BUSINESS_METRICS,
+                    "registered_users": registered_users,
+                },
             }
         )
 
