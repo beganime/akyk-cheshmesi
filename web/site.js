@@ -8,7 +8,18 @@
 
   const text = (selector, value) => {
     const node = document.querySelector(selector);
-    if (node && value) node.textContent = value;
+    if (node && value !== undefined && value !== null && String(value).trim()) {
+      node.textContent = value;
+    }
+  };
+
+  const setMetric = (name, value, suffix = '+') => {
+    const node = document.querySelector(`[data-metric="${name}"]`);
+    if (!node || value === undefined || value === null) return;
+    const number = Number(value);
+    node.textContent = Number.isFinite(number)
+      ? `${number.toLocaleString('ru-RU')}${suffix}`
+      : String(value);
   };
 
   const renderTextBlock = (selector, value) => {
@@ -17,6 +28,53 @@
     const parts = String(value).split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
     node.innerHTML = parts.map((part) => `<p>${escapeHtml(part)}</p>`).join('');
   };
+
+  const initials = (name) => String(name || 'AC')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+
+  function renderLogo(settings) {
+    const logo = document.querySelector('[data-site-logo]');
+    if (!logo) return;
+
+    const logoUrl = settings.logo_file_url || settings.logo_url;
+    if (logoUrl) {
+      logo.innerHTML = `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(settings.company_name || 'Akyl Cheshmesi')}">`;
+      return;
+    }
+
+    const staticLogo = new Image();
+    staticLogo.onload = () => {
+      logo.innerHTML = '<img src="/assets/akyl-logo.png" alt="Akyl Cheshmesi">';
+    };
+    staticLogo.src = '/assets/akyl-logo.png';
+  }
+
+  function renderTeam(team) {
+    const root = document.querySelector('[data-team-list]');
+    if (!root) return;
+
+    if (!team.length) {
+      root.innerHTML = '<div class="team-empty">Команда будет отображаться после заполнения раздела в админке.</div>';
+      return;
+    }
+
+    root.innerHTML = team.slice(0, 8).map((member) => {
+      const photo = member.photo_url
+        ? `<img src="${escapeHtml(member.photo_url)}" alt="${escapeHtml(member.full_name)}">`
+        : escapeHtml(initials(member.full_name));
+      return `<article class="team-card reveal visible">
+        <div class="team-photo">${photo}</div>
+        <h4>${escapeHtml(member.full_name)}</h4>
+        <div class="role">${escapeHtml(member.role || member.team_label || '')}</div>
+        <p>${escapeHtml(member.bio || member.team_label || '')}</p>
+      </article>`;
+    }).join('');
+  }
 
   async function loadWebsiteContent() {
     const root = document.documentElement;
@@ -28,8 +86,9 @@
       const data = await response.json();
       const settings = data.settings || {};
       const team = Array.isArray(data.team) ? data.team : [];
+      const metrics = data.metrics || {};
 
-      text('[data-site-company]', settings.company_name);
+      text('[data-site-company]', settings.company_name || 'Akyl Cheshmesi');
       text('[data-site-director]', settings.director_name ? `Гендиректор: ${settings.director_name}` : '');
       text('[data-site-hero-title]', settings.hero_title);
       text('[data-site-hero-subtitle]', settings.hero_subtitle);
@@ -39,24 +98,19 @@
       text('[data-site-security]', settings.security_text);
       renderTextBlock('[data-privacy-policy]', settings.privacy_policy);
       renderTextBlock('[data-terms-of-use]', settings.terms_of_use);
+      renderLogo(settings);
 
-      const logo = document.querySelector('[data-site-logo]');
-      const logoUrl = settings.logo_file_url || settings.logo_url;
-      if (logo && logoUrl) {
-        logo.innerHTML = `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(settings.company_name || 'Akyl Cheshmesi')}" />`;
-      }
+      setMetric('countries', metrics.countries);
+      setMetric('happy_clients', metrics.happy_clients);
+      setMetric('translated_documents', metrics.translated_documents);
+      setMetric('registered_users', metrics.registered_users, '');
 
       const googlePlay = document.querySelector('[data-google-play-link]');
       if (googlePlay && settings.google_play_url) googlePlay.href = settings.google_play_url;
       const testflight = document.querySelector('[data-testflight-link]');
       if (testflight && settings.testflight_url) testflight.href = settings.testflight_url;
 
-      const teamRoot = document.querySelector('[data-team-list]');
-      if (teamRoot && team.length) {
-        teamRoot.innerHTML = team.slice(0, 8).map((member) => (
-          `<article class="bento-card"><h3>${escapeHtml(member.full_name)}</h3><p>${escapeHtml(member.role || member.team_label || '')}</p><p>${escapeHtml(member.bio || '')}</p></article>`
-        )).join('');
-      }
+      renderTeam(team);
     } catch (_) {}
   }
 
@@ -106,7 +160,19 @@
     });
   }
 
+  function initReveal() {
+    const items = document.querySelectorAll('.reveal');
+    if (!items.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add('visible');
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+    items.forEach((item) => observer.observe(item));
+  }
+
   loadWebsiteContent();
   loadReleases();
   bindSupportForm();
+  initReveal();
 })();
