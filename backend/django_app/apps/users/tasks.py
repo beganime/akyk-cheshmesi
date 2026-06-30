@@ -90,4 +90,14 @@ def send_password_reset_email(self, email: str, code: str):
 def send_push_notification(user_ids: list[int], title: str, body: str, data: dict) -> dict:
     from .push_services import send_push_to_user_ids
 
-    return send_push_to_user_ids(user_ids, title, body, data).as_dict()
+    result = send_push_to_user_ids(user_ids, title, body, data)
+    logger.info(
+        "Push notification task finished | type=%s users=%s attempted=%s sent=%s skipped=%s disabled=%s",
+        (data or {}).get("type", ""),
+        len(user_ids or []),
+        result.attempted_count,
+        result.sent_count,
+        result.skipped_count,
+        result.disabled,
+    )
+    return result.as_dict()

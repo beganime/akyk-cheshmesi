@@ -71,8 +71,16 @@ def _stringify_data(data: dict) -> dict[str, str]:
     return {str(key): "" if value is None else str(value) for key, value in (data or {}).items()}
 
 
+def _notification_channel_id(data: dict) -> str:
+    push_type = str((data or {}).get("type") or "")
+    if push_type in {"call", "incoming_call", "missed_call"}:
+        return "calls"
+    return "messages"
+
+
 def _fcm_payload(push_token: DevicePushToken, title: str, body: str, data: dict) -> dict:
-    channel_id = data.get("type") or "messages"
+    channel_id = _notification_channel_id(data)
+    data = {**(data or {}), "channel_id": channel_id}
     return {
         "message": {
             "token": push_token.token,
@@ -84,14 +92,19 @@ def _fcm_payload(push_token: DevicePushToken, title: str, body: str, data: dict)
             "android": {
                 "priority": "high",
                 "notification": {
-                    "channel_id": str(channel_id),
+                    "channel_id": channel_id,
                     "sound": "default",
                 },
             },
             "apns": {
+                "headers": {
+                    "apns-priority": "10",
+                    "apns-push-type": "alert",
+                },
                 "payload": {
                     "aps": {
                         "sound": "default",
+                        "content-available": 1,
                     },
                 },
             },
@@ -155,6 +168,7 @@ def _send_fcm_message(push_token: DevicePushToken, title: str, body: str, data: 
 def send_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> PushDispatchResult:
     user_ids = [user_id for user_id in dict.fromkeys(user_ids or []) if user_id]
     if not user_ids:
+        logger.info("Push skipped: no recipient users | type=%s", (data or {}).get("type", ""))
         return PushDispatchResult()
 
     if not push_is_enabled():
@@ -173,6 +187,9 @@ def send_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> PushDi
         )
     )
     result = PushDispatchResult(attempted_count=len(push_tokens))
+    if not push_tokens:
+        logger.info("Push skipped: no active tokens | type=%s users=%s", (data or {}).get("type", ""), len(user_ids))
+        return result
 
     for push_token in push_tokens:
         if push_token.provider != DevicePushToken.Provider.FCM:
@@ -183,6 +200,14 @@ def send_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> PushDi
         if _send_fcm_message(push_token, title, body, data):
             result.sent_count += 1
 
+    logger.info(
+        "Push sent | type=%s users=%s tokens=%s sent=%s skipped=%s",
+        (data or {}).get("type", ""),
+        len(user_ids),
+        result.attempted_count,
+        result.sent_count,
+        result.skipped_count,
+    )
     return result
 
 
@@ -300,17 +325,21 @@ def dispatch_call_push(session_id: int, push_type: str, actor_user_id: int | Non
         title = "Incoming call"
         body = f"{caller_name} is calling"
 
+    caller_uuid = str(session.initiated_by.uuid)
     dispatch_push_to_user_ids(
         recipient_user_ids,
         title,
         body,
         {
             "type": push_type,
+            "event": "incoming_call" if push_type == "call" else push_type,
             "chat_uuid": str(session.chat.uuid),
             "call_uuid": str(session.uuid),
             "room_key": session.room_key,
             "call_type": session.call_type,
             "status": session.status,
-            "initiated_by_uuid": str(session.initiated_by.uuid),
+            "initiated_by_uuid": caller_uuid,
+            "caller_uuid": caller_uuid,
+            "caller_name": caller_name,
         },
     )

@@ -41,7 +41,7 @@ env = environ.Env(
     AUTH_EMAILS_ASYNC=(bool, False),
     AUTH_EMAILS_SYNC_FALLBACK=(bool, True),
     FCM_ENABLED=(bool, False),
-    PUSH_NOTIFICATIONS_ASYNC=(bool, True),
+    PUSH_NOTIFICATIONS_ASYNC=(bool, False),
 )
 
 env_file = PROJECT_ROOT / ".env"
@@ -118,7 +118,7 @@ TASKS_EAGER = env.bool("TASKS_EAGER", default=False)
 AUTH_EMAILS_ASYNC = env.bool("AUTH_EMAILS_ASYNC", default=False)
 AUTH_EMAILS_SYNC_FALLBACK = env.bool("AUTH_EMAILS_SYNC_FALLBACK", default=True)
 FCM_ENABLED = env.bool("FCM_ENABLED", default=False)
-PUSH_NOTIFICATIONS_ASYNC = env.bool("PUSH_NOTIFICATIONS_ASYNC", default=True)
+PUSH_NOTIFICATIONS_ASYNC = env.bool("PUSH_NOTIFICATIONS_ASYNC", default=False)
 FCM_PROJECT_ID = env("FCM_PROJECT_ID", default="")
 FCM_SERVICE_ACCOUNT_JSON = env("FCM_SERVICE_ACCOUNT_JSON", default="")
 FIREBASE_CREDENTIALS_PATH = env(
