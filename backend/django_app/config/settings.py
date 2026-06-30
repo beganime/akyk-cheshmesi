@@ -41,7 +41,11 @@ env = environ.Env(
     AUTH_EMAILS_ASYNC=(bool, False),
     AUTH_EMAILS_SYNC_FALLBACK=(bool, True),
     FCM_ENABLED=(bool, False),
+    APNS_ENABLED=(bool, False),
+    APNS_USE_SANDBOX=(bool, False),
     PUSH_NOTIFICATIONS_ASYNC=(bool, False),
+    CALL_MAX_DURATION_SECONDS=(int, 3600),
+    CALL_PENDING_TIMEOUT_SECONDS=(int, 60),
 )
 
 env_file = PROJECT_ROOT / ".env"
@@ -118,6 +122,8 @@ TASKS_EAGER = env.bool("TASKS_EAGER", default=False)
 AUTH_EMAILS_ASYNC = env.bool("AUTH_EMAILS_ASYNC", default=False)
 AUTH_EMAILS_SYNC_FALLBACK = env.bool("AUTH_EMAILS_SYNC_FALLBACK", default=True)
 FCM_ENABLED = env.bool("FCM_ENABLED", default=False)
+APNS_ENABLED = env.bool("APNS_ENABLED", default=False)
+APNS_USE_SANDBOX = env.bool("APNS_USE_SANDBOX", default=False)
 PUSH_NOTIFICATIONS_ASYNC = env.bool("PUSH_NOTIFICATIONS_ASYNC", default=False)
 FCM_PROJECT_ID = env("FCM_PROJECT_ID", default="")
 FCM_SERVICE_ACCOUNT_JSON = env("FCM_SERVICE_ACCOUNT_JSON", default="")
@@ -125,6 +131,13 @@ FIREBASE_CREDENTIALS_PATH = env(
     "FIREBASE_CREDENTIALS_PATH",
     default=env("FCM_SERVICE_ACCOUNT_FILE", default=""),
 )
+APNS_TEAM_ID = env("APNS_TEAM_ID", default="")
+APNS_KEY_ID = env("APNS_KEY_ID", default="")
+APNS_BUNDLE_ID = env("APNS_BUNDLE_ID", default="")
+APNS_AUTH_KEY_PATH = env("APNS_AUTH_KEY_PATH", default="")
+APNS_AUTH_KEY = env("APNS_AUTH_KEY", default="")
+CALL_MAX_DURATION_SECONDS = env.int("CALL_MAX_DURATION_SECONDS", default=3600)
+CALL_PENDING_TIMEOUT_SECONDS = env.int("CALL_PENDING_TIMEOUT_SECONDS", default=60)
 
 TEMPLATES = [
     {

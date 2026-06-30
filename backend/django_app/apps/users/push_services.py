@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from dataclasses import asdict, dataclass
 from urllib.error import HTTPError, URLError
 from urllib.request import Request as UrlRequest, urlopen
@@ -26,7 +27,15 @@ class PushDispatchResult:
 
 
 def push_is_enabled() -> bool:
+    return bool(getattr(settings, "FCM_ENABLED", False) or getattr(settings, "APNS_ENABLED", False))
+
+
+def _fcm_is_enabled() -> bool:
     return bool(getattr(settings, "FCM_ENABLED", False))
+
+
+def _apns_is_enabled() -> bool:
+    return bool(getattr(settings, "APNS_ENABLED", False))
 
 
 def _load_fcm_credentials():
@@ -50,7 +59,7 @@ def _load_fcm_credentials():
 
 
 def _get_fcm_access_token():
-    if not push_is_enabled():
+    if not _fcm_is_enabled():
         return None, ""
 
     try:
@@ -78,9 +87,30 @@ def _notification_channel_id(data: dict) -> str:
     return "messages"
 
 
+def _is_call_push(data: dict) -> bool:
+    return str((data or {}).get("type") or "") in {"call", "incoming_call"}
+
+
 def _fcm_payload(push_token: DevicePushToken, title: str, body: str, data: dict) -> dict:
     channel_id = _notification_channel_id(data)
     data = {**(data or {}), "channel_id": channel_id}
+    android_config = {
+        "priority": "high",
+        "notification": {
+            "channel_id": channel_id,
+            "sound": "default",
+        },
+    }
+    if _is_call_push(data):
+        android_config["ttl"] = "60s"
+
+    aps = {
+        "sound": "default",
+        "content-available": 1,
+    }
+    if channel_id == "calls":
+        aps["interruption-level"] = "time-sensitive"
+
     return {
         "message": {
             "token": push_token.token,
@@ -89,23 +119,14 @@ def _fcm_payload(push_token: DevicePushToken, title: str, body: str, data: dict)
                 "body": body,
             },
             "data": _stringify_data(data),
-            "android": {
-                "priority": "high",
-                "notification": {
-                    "channel_id": channel_id,
-                    "sound": "default",
-                },
-            },
+            "android": android_config,
             "apns": {
                 "headers": {
                     "apns-priority": "10",
                     "apns-push-type": "alert",
                 },
                 "payload": {
-                    "aps": {
-                        "sound": "default",
-                        "content-available": 1,
-                    },
+                    "aps": aps,
                 },
             },
         }
@@ -165,6 +186,127 @@ def _send_fcm_message(push_token: DevicePushToken, title: str, body: str, data: 
         return False
 
 
+def _load_apns_auth_key() -> str:
+    auth_key = (getattr(settings, "APNS_AUTH_KEY", "") or "").strip()
+    if auth_key:
+        return auth_key.replace("\\n", "\n")
+
+    auth_key_path = (getattr(settings, "APNS_AUTH_KEY_PATH", "") or "").strip()
+    if auth_key_path:
+        with open(auth_key_path, "r", encoding="utf-8") as key_file:
+            return key_file.read()
+
+    return ""
+
+
+def _get_apns_auth_token() -> str:
+    if not _apns_is_enabled():
+        return ""
+
+    team_id = (getattr(settings, "APNS_TEAM_ID", "") or "").strip()
+    key_id = (getattr(settings, "APNS_KEY_ID", "") or "").strip()
+    auth_key = _load_apns_auth_key()
+    if not team_id or not key_id or not auth_key:
+        logger.warning("APNS is enabled but team id, key id, or auth key is missing")
+        return ""
+
+    try:
+        import jwt
+
+        return jwt.encode(
+            {"iss": team_id, "iat": int(time.time())},
+            auth_key,
+            algorithm="ES256",
+            headers={"kid": key_id},
+        )
+    except Exception as exc:
+        logger.exception("Failed to build APNS auth token: %s", exc)
+        return ""
+
+
+def _apns_payload(title: str, body: str, data: dict) -> dict:
+    channel_id = _notification_channel_id(data)
+    data = {**(data or {}), "channel_id": channel_id}
+    aps = {
+        "alert": {
+            "title": title,
+            "body": body,
+        },
+        "sound": "default",
+        "content-available": 1,
+    }
+    if channel_id == "calls":
+        aps["interruption-level"] = "time-sensitive"
+
+    return {
+        "aps": aps,
+        **_stringify_data(data),
+    }
+
+
+def _send_apns_message(push_token: DevicePushToken, title: str, body: str, data: dict) -> bool:
+    auth_token = _get_apns_auth_token()
+    bundle_id = (getattr(settings, "APNS_BUNDLE_ID", "") or "").strip()
+    if not auth_token or not bundle_id:
+        return False
+
+    host = (
+        "https://api.sandbox.push.apple.com"
+        if getattr(settings, "APNS_USE_SANDBOX", False)
+        else "https://api.push.apple.com"
+    )
+    headers = {
+        "Authorization": f"Bearer {auth_token}",
+        "Content-Type": "application/json",
+        "apns-topic": bundle_id,
+        "apns-push-type": "alert",
+        "apns-priority": "10",
+    }
+    if _is_call_push(data):
+        headers["apns-expiration"] = str(int(time.time()) + 60)
+
+    request = UrlRequest(
+        url=f"{host}/3/device/{push_token.token}",
+        data=json.dumps(_apns_payload(title, body, data)).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+
+    try:
+        with urlopen(request, timeout=15) as response:
+            response.read()
+        return True
+    except HTTPError as exc:
+        response_body = exc.read().decode("utf-8", errors="ignore")
+        logger.warning("APNS HTTP error for push token %s: %s | %s", push_token.id, exc.code, response_body)
+        if exc.code in {400, 410}:
+            _deactivate_token(push_token, "apns_invalid_token")
+        return False
+    except URLError as exc:
+        logger.warning("APNS URL error for push token %s: %s", push_token.id, exc)
+        return False
+    except Exception as exc:
+        logger.exception("Unexpected APNS error for push token %s: %s", push_token.id, exc)
+        return False
+
+
+def _send_device_push(push_token: DevicePushToken, title: str, body: str, data: dict) -> bool:
+    if push_token.provider == DevicePushToken.Provider.FCM:
+        if not _fcm_is_enabled():
+            logger.info("Skipping FCM token because FCM is disabled: token=%s", push_token.id)
+            return False
+        return _send_fcm_message(push_token, title, body, data)
+
+    if push_token.provider == DevicePushToken.Provider.APNS:
+        if not _apns_is_enabled():
+            logger.info("Skipping APNS token because APNS is disabled: token=%s", push_token.id)
+            return False
+        return _send_apns_message(push_token, title, body, data)
+
+    logger.info("Skipping unsupported push provider=%s token=%s", push_token.provider, push_token.id)
+    return False
+
+
 def send_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> PushDispatchResult:
     user_ids = [user_id for user_id in dict.fromkeys(user_ids or []) if user_id]
     if not user_ids:
@@ -172,7 +314,7 @@ def send_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> PushDi
         return PushDispatchResult()
 
     if not push_is_enabled():
-        logger.info("FCM push is disabled; skipping push to %s users", len(user_ids))
+        logger.info("Push providers are disabled; skipping push to %s users", len(user_ids))
         return PushDispatchResult(disabled=True, skipped_count=len(user_ids))
 
     push_tokens = list(
@@ -192,12 +334,20 @@ def send_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> PushDi
         return result
 
     for push_token in push_tokens:
-        if push_token.provider != DevicePushToken.Provider.FCM:
+        if push_token.provider not in {DevicePushToken.Provider.FCM, DevicePushToken.Provider.APNS}:
             result.skipped_count += 1
             logger.info("Skipping unsupported push provider=%s token=%s", push_token.provider, push_token.id)
             continue
+        if push_token.provider == DevicePushToken.Provider.FCM and not _fcm_is_enabled():
+            result.skipped_count += 1
+            logger.info("Skipping FCM token because FCM is disabled: token=%s", push_token.id)
+            continue
+        if push_token.provider == DevicePushToken.Provider.APNS and not _apns_is_enabled():
+            result.skipped_count += 1
+            logger.info("Skipping APNS token because APNS is disabled: token=%s", push_token.id)
+            continue
 
-        if _send_fcm_message(push_token, title, body, data):
+        if _send_device_push(push_token, title, body, data):
             result.sent_count += 1
 
     logger.info(
@@ -217,14 +367,14 @@ def dispatch_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> No
         return
 
     if not push_is_enabled():
-        logger.info("FCM push is disabled; not enqueueing push to %s users", len(user_ids))
+        logger.info("Push providers are disabled; not enqueueing push to %s users", len(user_ids))
         return
 
-    if getattr(settings, "TASKS_EAGER", False) or not getattr(settings, "PUSH_NOTIFICATIONS_ASYNC", True):
-        send_push_to_user_ids(user_ids, title, body, data)
-        return
+    def deliver_after_commit():
+        if getattr(settings, "TASKS_EAGER", False) or not getattr(settings, "PUSH_NOTIFICATIONS_ASYNC", True):
+            send_push_to_user_ids(user_ids, title, body, data)
+            return
 
-    def enqueue():
         try:
             from apps.users.tasks import send_push_notification
 
@@ -233,7 +383,7 @@ def dispatch_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> No
             logger.exception("Failed to enqueue push task; sending synchronously")
             send_push_to_user_ids(user_ids, title, body, data)
 
-    transaction.on_commit(enqueue)
+    transaction.on_commit(deliver_after_commit)
 
 
 def _user_display_name(user) -> str:
@@ -289,7 +439,9 @@ def send_message_push_by_id(message_id: int) -> PushDispatchResult:
         "chat_uuid": str(message.chat.uuid),
         "message_uuid": str(message.uuid),
         "sender_uuid": str(message.sender.uuid),
+        "sender_name": _user_display_name(message.sender),
         "message_type": message.message_type,
+        "preview": body,
     }
     if story_uuid:
         data["story_uuid"] = str(story_uuid)

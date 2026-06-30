@@ -186,6 +186,113 @@ Upload media first, then send message with `attachment_uuids`.
 
 Supported message types: `text`, `image`, `video`, `file`, `audio`, `video_note`, `sticker`, `system`.
 
+## Push Notifications
+
+Register the device token after login and refresh it whenever Firebase/APNS rotates the token.
+
+- `POST /api/v1/push-tokens/`
+- `DELETE /api/v1/push-tokens/`
+- Compatibility alias: `POST /api/v1/device-tokens/`, `DELETE /api/v1/device-tokens/`
+
+Register payload:
+
+```json
+{
+  "token": "provider-token",
+  "provider": "fcm",
+  "platform": "android",
+  "device_id": "stable-device-id",
+  "device_name": "Pixel",
+  "app_version": "1.0.0",
+  "meta": { "locale": "ru" }
+}
+```
+
+Allowed values:
+
+- `provider`: `fcm`, `apns`
+- `platform`: `android`, `ios`, `web`
+
+Delete on logout:
+
+```json
+{ "token": "provider-token" }
+```
+
+or:
+
+```json
+{ "provider": "fcm", "platform": "android", "device_id": "stable-device-id" }
+```
+
+### Android Channels
+
+The mobile app must create these notification channels before receiving push:
+
+- `calls` for incoming/missed calls
+- `messages` for chat messages
+
+Backend sets both `data.channel_id` and `android.notification.channel_id`. Incoming calls use Android `high` priority and `ttl=60s`. Message pushes also use `high` priority.
+
+### Message Push Data
+
+FCM/APNS payload always includes visible `notification` title/body and the full `data` object. Mobile must route by `data.type`.
+
+```json
+{
+  "type": "message",
+  "channel_id": "messages",
+  "chat_uuid": "chat-uuid",
+  "message_uuid": "message-uuid",
+  "sender_uuid": "sender-user-uuid",
+  "sender_name": "Sender Name",
+  "message_type": "text",
+  "preview": "Message preview"
+}
+```
+
+Tap behavior: open `chat_uuid` and scroll/highlight `message_uuid` when possible.
+
+### Incoming Call Push Data
+
+```json
+{
+  "type": "call",
+  "event": "incoming_call",
+  "channel_id": "calls",
+  "call_uuid": "call-uuid",
+  "chat_uuid": "chat-uuid",
+  "room_key": "call-room-key",
+  "call_type": "audio",
+  "status": "ringing",
+  "initiated_by_uuid": "caller-user-uuid",
+  "caller_uuid": "caller-user-uuid",
+  "caller_name": "Caller Name"
+}
+```
+
+Incoming call pushes are short-lived. Android FCM uses `android.ttl=60s`; APNS direct sends `apns-expiration` approximately 60 seconds in the future when configured.
+
+### Missed Call Push Data
+
+```json
+{
+  "type": "missed_call",
+  "event": "missed_call",
+  "channel_id": "calls",
+  "call_uuid": "call-uuid",
+  "chat_uuid": "chat-uuid",
+  "room_key": "call-room-key",
+  "call_type": "audio",
+  "status": "missed",
+  "initiated_by_uuid": "caller-user-uuid",
+  "caller_uuid": "caller-user-uuid",
+  "caller_name": "Caller Name"
+}
+```
+
+If the app is foreground, it should use push data or WebSocket `call:invite` to open the incoming call screen. If background/closed, tapping the push should open the same call screen using `call_uuid` and `room_key`.
+
 ## Media
 
 Mobile must not build `/media/...` URLs manually. Use `file_url` and `thumbnail_url` from backend responses.
@@ -536,6 +643,29 @@ Media stream is WebRTC. Server stores call status/history and relays signaling.
 - `POST /api/v1/calls/{call_uuid}/cancel/`
 - `GET /api/v1/calls/`
 - `GET /api/v1/calls/{call_uuid}/`
+
+Call lifecycle:
+
+- Creating a call creates a `CallSession` and participants regardless of recipient online/offline status.
+- `call:invite` is published to the chat realtime channel and an incoming call push is sent to recipients.
+- `call:accept` marks the participant joined and the session accepted. It does not end the call.
+- `call:decline`, `call:end`, `call:missed`, and `call:cancel` move the relevant participant/session toward a final state.
+- Pending/ringing calls expire after `CALL_PENDING_TIMEOUT_SECONDS` (default `60`) and become `missed`.
+- Accepted calls expire after `CALL_MAX_DURATION_SECONDS` (default `3600`) to prevent permanently active calls.
+- Expired ringing calls publish `call:auto-end` and send `missed_call` push.
+
+Supported realtime call events/signals:
+
+- `call:invite`
+- `call:accept`
+- `call:decline`
+- `call:end`
+- `call:missed`
+- `call:offer`
+- `call:answer`
+- `call:ice-candidate`
+
+The backend also provides `python manage.py expire_stale_calls`; run it every minute in production if you want stale calls closed without waiting for the next call/list/detail API request.
 
 ## WebSocket
 

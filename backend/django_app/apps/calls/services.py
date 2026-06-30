@@ -16,7 +16,7 @@ ACTIVE_CALL_STATUSES = {
 }
 
 CALL_MAX_DURATION_SECONDS = int(getattr(settings, "CALL_MAX_DURATION_SECONDS", 60 * 60))
-CALL_PENDING_TIMEOUT_SECONDS = int(getattr(settings, "CALL_PENDING_TIMEOUT_SECONDS", 2 * 60))
+CALL_PENDING_TIMEOUT_SECONDS = int(getattr(settings, "CALL_PENDING_TIMEOUT_SECONDS", 60))
 
 
 def get_realtime_redis_url() -> str:
@@ -199,13 +199,17 @@ def _finish_expired_session(session: CallSession, status: str, ended_at) -> None
         },
         publish=True,
     )
+    if status == CallSession.Status.MISSED:
+        from apps.users.push_services import dispatch_call_push
+
+        dispatch_call_push(session.id, "missed_call")
 
 
 def expire_stale_active_calls(*, chat=None, user=None, now=None) -> int:
     """Close stale call sessions before they block new calls or stay open forever.
 
     Accepted calls are limited to CALL_MAX_DURATION_SECONDS (default: 1 hour).
-    Pending/ringing calls are closed after CALL_PENDING_TIMEOUT_SECONDS (default: 2 minutes).
+    Pending/ringing calls are closed after CALL_PENDING_TIMEOUT_SECONDS (default: 60 seconds).
     """
     current_time = now or timezone.now()
     expired_count = 0

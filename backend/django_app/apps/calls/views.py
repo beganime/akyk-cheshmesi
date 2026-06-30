@@ -17,7 +17,13 @@ from .serializers import (
     CallSessionDetailSerializer,
     CallSessionListSerializer,
 )
-from .services import create_call_event, create_call_signal, finalize_call_session, finalize_participant_if_joined
+from .services import (
+    create_call_event,
+    create_call_signal,
+    expire_stale_active_calls,
+    finalize_call_session,
+    finalize_participant_if_joined,
+)
 
 
 def call_queryset_for_user(user):
@@ -44,6 +50,7 @@ class CallHistoryListAPIView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        expire_stale_active_calls(user=self.request.user)
         queryset = call_queryset_for_user(self.request.user)
         chat_uuid = self.request.query_params.get("chat_uuid")
         status_value = self.request.query_params.get("status")
@@ -63,6 +70,7 @@ class CallDetailAPIView(generics.RetrieveAPIView):
     lookup_url_kwarg = "call_uuid"
 
     def get_queryset(self):
+        expire_stale_active_calls(user=self.request.user)
         return call_queryset_for_user(self.request.user)
 
 

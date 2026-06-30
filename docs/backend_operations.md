@@ -56,9 +56,17 @@ MEDIA_BLOCKED_EXTENSIONS=php,phtml,phar,asp,aspx,jsp,cgi,pl,py,sh,bash,bat,cmd,p
 Push:
 
 ```env
-FCM_ENABLED=False
-FCM_PROJECT_ID=
+FCM_ENABLED=True
+PUSH_NOTIFICATIONS_ASYNC=False
+FCM_PROJECT_ID=your-firebase-project-id
 FIREBASE_CREDENTIALS_PATH=/app/secrets/firebase-service-account.json
+APNS_ENABLED=False
+APNS_USE_SANDBOX=False
+APNS_TEAM_ID=
+APNS_KEY_ID=
+APNS_BUNDLE_ID=
+APNS_AUTH_KEY_PATH=/app/secrets/AuthKey_CHANGE_ME.p8
+CALL_PENDING_TIMEOUT_SECONDS=60
 ```
 
 Never commit `.env`, Firebase service-account JSON, private keys, or production database dumps.
@@ -182,7 +190,7 @@ node --check web/app.js
 ## Remaining Integration Work
 
 - run production FCM with a real Firebase project and service account;
-- add APNS direct provider if iOS will not use Firebase Messaging;
+- enable APNS direct provider if iOS will not use Firebase Messaging;
 - add outbound bot webhooks if integrations need callbacks;
 - move heavy video transcoding to Celery if upload volume grows;
 - add admin analytics for media and bot usage.

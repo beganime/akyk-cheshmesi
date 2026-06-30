@@ -99,7 +99,9 @@ class PushTokenAPITests(TestCase):
 
         message = payload["message"]
         self.assertEqual(message["android"]["notification"]["channel_id"], "messages")
+        self.assertNotIn("ttl", message["android"])
         self.assertEqual(message["data"]["channel_id"], "messages")
+        self.assertEqual(message["data"]["chat_uuid"], "chat-1")
         self.assertEqual(message["apns"]["headers"]["apns-push-type"], "alert")
 
     def test_fcm_payload_uses_calls_channel_for_incoming_call(self):
@@ -114,8 +116,11 @@ class PushTokenAPITests(TestCase):
 
         message = payload["message"]
         self.assertEqual(message["android"]["notification"]["channel_id"], "calls")
+        self.assertEqual(message["android"]["ttl"], "60s")
         self.assertEqual(message["data"]["channel_id"], "calls")
+        self.assertEqual(message["data"]["call_uuid"], "call-1")
         self.assertEqual(message["apns"]["payload"]["aps"]["content-available"], 1)
+        self.assertEqual(message["apns"]["payload"]["aps"]["interruption-level"], "time-sensitive")
 
     @override_settings(FCM_ENABLED=True)
     def test_send_push_to_user_ids_sends_active_fcm_tokens(self):
