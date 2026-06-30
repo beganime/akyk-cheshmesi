@@ -20,6 +20,9 @@ case "$1" in
   celery)
     exec celery -A config worker --loglevel=${CELERY_LOGLEVEL:-INFO}
     ;;
+  celery-beat)
+    exec celery -A config beat --loglevel=${CELERY_LOGLEVEL:-INFO}
+    ;;
   stream-saver)
     exec python manage.py consume_message_stream
     ;;

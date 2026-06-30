@@ -1,7 +1,11 @@
+import logging
+
 from django.utils import timezone
 from rest_framework import serializers
 
 from .models import DevicePushToken
+
+logger = logging.getLogger(__name__)
 
 
 class PushTokenUpsertSerializer(serializers.Serializer):
@@ -24,13 +28,22 @@ class PushTokenUpsertSerializer(serializers.Serializer):
         now = timezone.now()
 
         if device_id:
-            DevicePushToken.objects.filter(
+            replaced_count = DevicePushToken.objects.filter(
                 user=user,
                 provider=provider,
                 platform=platform,
                 device_id=device_id,
                 is_active=True,
             ).exclude(token=token_value).update(is_active=False, last_seen_at=now, updated_at=now)
+            if replaced_count:
+                logger.info(
+                    "Push token replaced for same device | user_id=%s provider=%s platform=%s device_id=%s replaced=%s",
+                    user.id,
+                    provider,
+                    platform,
+                    device_id,
+                    replaced_count,
+                )
 
         push_token, created = DevicePushToken.objects.get_or_create(
             token=token_value,
@@ -73,13 +86,33 @@ class PushTokenUpsertSerializer(serializers.Serializer):
             )
 
         if device_id:
-            DevicePushToken.objects.filter(
+            duplicate_count = DevicePushToken.objects.filter(
                 user=user,
                 provider=provider,
                 platform=platform,
                 device_id=device_id,
                 is_active=True,
             ).exclude(id=push_token.id).update(is_active=False)
+            if duplicate_count:
+                logger.info(
+                    "Duplicate active push tokens deactivated | user_id=%s provider=%s platform=%s device_id=%s count=%s",
+                    user.id,
+                    provider,
+                    platform,
+                    device_id,
+                    duplicate_count,
+                )
+
+        logger.info(
+            "Push token saved | user_id=%s token_id=%s provider=%s platform=%s device_id=%s created=%s active_tokens=%s",
+            user.id,
+            push_token.id,
+            provider,
+            platform,
+            device_id,
+            created,
+            DevicePushToken.objects.filter(user=user, is_active=True).count(),
+        )
 
         return push_token
 

@@ -151,6 +151,14 @@ def _deactivate_token(push_token: DevicePushToken, reason: str) -> None:
     meta["deactivated_reason"] = reason
     push_token.meta = meta
     push_token.save(update_fields=["is_active", "meta", "updated_at"])
+    logger.info(
+        "Push token deactivated | token_id=%s user_id=%s provider=%s platform=%s reason=%s",
+        push_token.id,
+        push_token.user_id,
+        push_token.provider,
+        push_token.platform,
+        reason,
+    )
 
 
 def _send_fcm_message(push_token: DevicePushToken, title: str, body: str, data: dict) -> bool:
@@ -170,7 +178,16 @@ def _send_fcm_message(push_token: DevicePushToken, title: str, body: str, data: 
 
     try:
         with urlopen(request, timeout=15) as response:
-            response.read()
+            response_body = response.read().decode("utf-8", errors="ignore")
+        logger.info(
+            "FCM push success | token_id=%s user_id=%s provider=%s platform=%s status=%s response=%s",
+            push_token.id,
+            push_token.user_id,
+            push_token.provider,
+            push_token.platform,
+            getattr(response, "status", ""),
+            response_body[:160],
+        )
         return True
     except HTTPError as exc:
         response_body = exc.read().decode("utf-8", errors="ignore")
@@ -274,7 +291,16 @@ def _send_apns_message(push_token: DevicePushToken, title: str, body: str, data:
 
     try:
         with urlopen(request, timeout=15) as response:
-            response.read()
+            response_body = response.read().decode("utf-8", errors="ignore")
+        logger.info(
+            "APNS push success | token_id=%s user_id=%s provider=%s platform=%s status=%s response=%s",
+            push_token.id,
+            push_token.user_id,
+            push_token.provider,
+            push_token.platform,
+            getattr(response, "status", ""),
+            response_body[:160],
+        )
         return True
     except HTTPError as exc:
         response_body = exc.read().decode("utf-8", errors="ignore")
@@ -329,6 +355,21 @@ def send_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> PushDi
         )
     )
     result = PushDispatchResult(attempted_count=len(push_tokens))
+    logger.info(
+        "Push tokens resolved | type=%s users=%s tokens=%s providers=%s",
+        (data or {}).get("type", ""),
+        len(user_ids),
+        len(push_tokens),
+        [
+            {
+                "user_id": push_token.user_id,
+                "provider": push_token.provider,
+                "platform": push_token.platform,
+                "token_id": push_token.id,
+            }
+            for push_token in push_tokens
+        ],
+    )
     if not push_tokens:
         logger.info("Push skipped: no active tokens | type=%s users=%s", (data or {}).get("type", ""), len(user_ids))
         return result
@@ -386,6 +427,28 @@ def dispatch_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> No
     transaction.on_commit(deliver_after_commit)
 
 
+def dispatch_message_push(message_id: int) -> None:
+    if not push_is_enabled():
+        logger.info("Message push skipped because push providers are disabled | message_id=%s", message_id)
+        return
+
+    def deliver_after_commit():
+        if getattr(settings, "TASKS_EAGER", False) or not getattr(settings, "PUSH_NOTIFICATIONS_ASYNC", True):
+            send_message_push_by_id(message_id)
+            return
+
+        try:
+            from apps.messaging.tasks import send_new_message_push_notifications
+
+            send_new_message_push_notifications.delay(message_id)
+            logger.info("Message push task enqueued | message_id=%s", message_id)
+        except Exception:
+            logger.exception("Failed to enqueue message push task; sending synchronously | message_id=%s", message_id)
+            send_message_push_by_id(message_id)
+
+    transaction.on_commit(deliver_after_commit)
+
+
 def _user_display_name(user) -> str:
     return (
         f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
@@ -425,6 +488,11 @@ def send_message_push_by_id(message_id: int) -> PushDispatchResult:
         .values_list("user_id", flat=True)
     )
     if not recipient_user_ids:
+        logger.info(
+            "Message push skipped: no eligible recipients | message_id=%s chat_uuid=%s",
+            message.id,
+            message.chat.uuid,
+        )
         return PushDispatchResult()
 
     metadata = message.metadata or {}
@@ -436,6 +504,7 @@ def send_message_push_by_id(message_id: int) -> PushDispatchResult:
     body = _message_push_body(message)
     data = {
         "type": push_type,
+        "channel_id": "messages",
         "chat_uuid": str(message.chat.uuid),
         "message_uuid": str(message.uuid),
         "sender_uuid": str(message.sender.uuid),
@@ -448,6 +517,12 @@ def send_message_push_by_id(message_id: int) -> PushDispatchResult:
     if story_action:
         data["story_action"] = str(story_action)
 
+    logger.info(
+        "Dispatching message push | message_id=%s chat_uuid=%s recipients=%s muted_excluded=true",
+        message.id,
+        message.chat.uuid,
+        len(recipient_user_ids),
+    )
     return send_push_to_user_ids(recipient_user_ids, title, body, data)
 
 
@@ -460,13 +535,19 @@ def dispatch_call_push(session_id: int, push_type: str, actor_user_id: int | Non
         return
 
     recipients = ChatMember.objects.filter(chat=session.chat, is_active=True, is_muted=False, is_archived=False)
-    if push_type == "call":
+    if push_type in {"call", "missed_call"}:
         recipients = recipients.exclude(user_id=session.initiated_by_id)
     elif actor_user_id:
         recipients = recipients.exclude(user_id=actor_user_id)
 
     recipient_user_ids = list(recipients.values_list("user_id", flat=True))
     if not recipient_user_ids:
+        logger.info(
+            "Call push skipped: no eligible recipients | call_uuid=%s type=%s chat_uuid=%s",
+            session.uuid,
+            push_type,
+            session.chat.uuid,
+        )
         return
 
     caller_name = _user_display_name(session.initiated_by)
@@ -478,20 +559,29 @@ def dispatch_call_push(session_id: int, push_type: str, actor_user_id: int | Non
         body = f"{caller_name} is calling"
 
     caller_uuid = str(session.initiated_by.uuid)
+    data = {
+        "type": push_type,
+        "event": "incoming_call" if push_type == "call" else push_type,
+        "channel_id": "calls",
+        "chat_uuid": str(session.chat.uuid),
+        "call_uuid": str(session.uuid),
+        "room_key": session.room_key,
+        "call_type": session.call_type,
+        "status": session.status,
+        "initiated_by_uuid": caller_uuid,
+        "caller_uuid": caller_uuid,
+        "caller_name": caller_name,
+    }
+    logger.info(
+        "Dispatching call push | call_uuid=%s type=%s chat_uuid=%s recipients=%s",
+        session.uuid,
+        push_type,
+        session.chat.uuid,
+        len(recipient_user_ids),
+    )
     dispatch_push_to_user_ids(
         recipient_user_ids,
         title,
         body,
-        {
-            "type": push_type,
-            "event": "incoming_call" if push_type == "call" else push_type,
-            "chat_uuid": str(session.chat.uuid),
-            "call_uuid": str(session.uuid),
-            "room_key": session.room_key,
-            "call_type": session.call_type,
-            "status": session.status,
-            "initiated_by_uuid": caller_uuid,
-            "caller_uuid": caller_uuid,
-            "caller_name": caller_name,
-        },
+        data,
     )

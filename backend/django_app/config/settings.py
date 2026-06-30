@@ -138,6 +138,12 @@ APNS_AUTH_KEY_PATH = env("APNS_AUTH_KEY_PATH", default="")
 APNS_AUTH_KEY = env("APNS_AUTH_KEY", default="")
 CALL_MAX_DURATION_SECONDS = env.int("CALL_MAX_DURATION_SECONDS", default=3600)
 CALL_PENDING_TIMEOUT_SECONDS = env.int("CALL_PENDING_TIMEOUT_SECONDS", default=60)
+CELERY_BEAT_SCHEDULE = {
+    "expire-stale-call-sessions": {
+        "task": "apps.calls.tasks.expire_stale_call_sessions",
+        "schedule": timedelta(seconds=15),
+    },
+}
 
 TEMPLATES = [
     {

@@ -4,7 +4,10 @@ from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from apps.users.models import DevicePushToken, User
-from apps.users.push_services import _fcm_payload, send_push_to_user_ids
+from apps.users.push_services import _fcm_payload, dispatch_call_push, send_message_push_by_id, send_push_to_user_ids
+from apps.chats.models import Chat, ChatMember
+from apps.calls.models import CallParticipant, CallSession
+from apps.messaging.models import Message
 
 
 def create_active_user(email: str, username: str) -> User:
@@ -68,6 +71,30 @@ class PushTokenAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(DevicePushToken.objects.get(token="new-token").is_active)
         self.assertFalse(DevicePushToken.objects.get(token="old-token").is_active)
+
+    def test_register_push_tokens_keeps_different_devices_active(self):
+        self.client.post(
+            "/api/push-tokens/",
+            {
+                "token": "phone-token",
+                "provider": "fcm",
+                "platform": "android",
+                "device_id": "android-phone",
+            },
+            format="json",
+        )
+        self.client.post(
+            "/api/push-tokens/",
+            {
+                "token": "tablet-token",
+                "provider": "fcm",
+                "platform": "android",
+                "device_id": "android-tablet",
+            },
+            format="json",
+        )
+
+        self.assertEqual(DevicePushToken.objects.filter(user=self.user, is_active=True).count(), 2)
 
     def test_delete_push_token_deactivates(self):
         DevicePushToken.objects.create(
@@ -143,3 +170,103 @@ class PushTokenAPITests(TestCase):
         self.assertEqual(result.attempted_count, 1)
         self.assertEqual(result.sent_count, 1)
         send_mock.assert_called_once()
+
+
+class PushDeliveryTests(TestCase):
+    def setUp(self):
+        self.sender = create_active_user("sender@example.com", "sender")
+        self.recipient = create_active_user("recipient@example.com", "recipient")
+        self.chat = Chat.objects.create(chat_type=Chat.ChatType.DIRECT, creator=self.sender, members_count=2)
+        ChatMember.objects.create(chat=self.chat, user=self.sender, role=ChatMember.Role.OWNER)
+        ChatMember.objects.create(chat=self.chat, user=self.recipient, role=ChatMember.Role.MEMBER)
+
+    @override_settings(FCM_ENABLED=True)
+    def test_message_push_targets_chat_recipient_with_required_data(self):
+        message = Message.objects.create(chat=self.chat, sender=self.sender, text="Hello from mobile")
+
+        with patch("apps.users.push_services.send_push_to_user_ids") as push_mock:
+            send_message_push_by_id(message.id)
+
+        push_mock.assert_called_once()
+        user_ids, title, body, data = push_mock.call_args.args
+        self.assertEqual(user_ids, [self.recipient.id])
+        self.assertEqual(data["type"], "message")
+        self.assertEqual(data["channel_id"], "messages")
+        self.assertEqual(data["chat_uuid"], str(self.chat.uuid))
+        self.assertEqual(data["message_uuid"], str(message.uuid))
+        self.assertEqual(data["sender_name"], "sender")
+        self.assertEqual(data["preview"], "Hello from mobile")
+
+    @override_settings(FCM_ENABLED=True)
+    def test_call_push_targets_callee_with_required_data(self):
+        session = CallSession.objects.create(
+            chat=self.chat,
+            initiated_by=self.sender,
+            call_type=CallSession.CallType.VIDEO,
+            status=CallSession.Status.RINGING,
+        )
+        CallParticipant.objects.create(
+            session=session,
+            user=self.sender,
+            role=CallParticipant.Role.CALLER,
+            status=CallParticipant.Status.JOINED,
+        )
+        CallParticipant.objects.create(
+            session=session,
+            user=self.recipient,
+            role=CallParticipant.Role.CALLEE,
+            status=CallParticipant.Status.RINGING,
+        )
+
+        with patch("apps.users.push_services.dispatch_push_to_user_ids") as push_mock:
+            dispatch_call_push(session.id, "call")
+
+        push_mock.assert_called_once()
+        user_ids, title, body, data = push_mock.call_args.args
+        self.assertEqual(user_ids, [self.recipient.id])
+        self.assertEqual(data["type"], "call")
+        self.assertEqual(data["event"], "incoming_call")
+        self.assertEqual(data["channel_id"], "calls")
+        self.assertEqual(data["call_uuid"], str(session.uuid))
+        self.assertEqual(data["chat_uuid"], str(self.chat.uuid))
+        self.assertEqual(data["room_key"], session.room_key)
+        self.assertEqual(data["call_type"], "video")
+        self.assertEqual(data["caller_uuid"], str(self.sender.uuid))
+
+    @override_settings(FCM_ENABLED=True)
+    def test_missed_call_push_does_not_target_caller(self):
+        session = CallSession.objects.create(
+            chat=self.chat,
+            initiated_by=self.sender,
+            call_type=CallSession.CallType.AUDIO,
+            status=CallSession.Status.MISSED,
+        )
+
+        with patch("apps.users.push_services.dispatch_push_to_user_ids") as push_mock:
+            dispatch_call_push(session.id, "missed_call")
+
+        push_mock.assert_called_once()
+        user_ids, title, body, data = push_mock.call_args.args
+        self.assertEqual(user_ids, [self.recipient.id])
+        self.assertEqual(data["type"], "missed_call")
+        self.assertEqual(data["event"], "missed_call")
+        self.assertEqual(data["channel_id"], "calls")
+
+
+class UserProfileAPITests(TestCase):
+    def setUp(self):
+        self.user = create_active_user("profile@example.com", "profile")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_patch_me_is_partial(self):
+        response = self.client.patch(
+            "/api/users/me/",
+            {"first_name": "Akyl"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Akyl")
+        self.assertEqual(response.data["username"], "profile")

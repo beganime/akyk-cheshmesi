@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import timedelta
 from typing import Any
 
@@ -8,6 +9,7 @@ from django.utils import timezone
 
 from .models import CallEvent, CallLog, CallParticipant, CallSession, CallSignal
 
+logger = logging.getLogger(__name__)
 
 ACTIVE_CALL_STATUSES = {
     CallSession.Status.REQUESTED,
@@ -51,8 +53,20 @@ def publish_chat_realtime_event(chat_uuid, event_type: str, payload: dict[str, A
             settings.REDIS_REALTIME_EVENTS_CHANNEL,
             json.dumps(envelope, default=str),
         )
+        logger.info(
+            "Realtime call event published | event_type=%s chat_uuid=%s call_uuid=%s",
+            event_type,
+            chat_uuid,
+            (payload or {}).get("call_uuid", ""),
+        )
         return True
     except Exception:
+        logger.exception(
+            "Realtime call event publish failed | event_type=%s chat_uuid=%s call_uuid=%s",
+            event_type,
+            chat_uuid,
+            (payload or {}).get("call_uuid", ""),
+        )
         return False
 
 
@@ -82,12 +96,14 @@ def create_call_event(
 
     if publish:
         publish_payload = {
+            "type": event_type,
             "call_uuid": str(session.uuid),
             "chat_uuid": str(session.chat.uuid),
             "room_key": session.room_key,
             "call_type": session.call_type,
             "status": session.status,
             "initiated_by_uuid": str(session.initiated_by.uuid),
+            "initiated_by_username": session.initiated_by.username or "",
             **payload,
         }
         publish_chat_realtime_event(

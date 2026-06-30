@@ -213,9 +213,20 @@ class CallCreateSerializer(serializers.Serializer):
                 event_type="call:invite",
                 actor=request.user,
                 payload={
+                    "event": "incoming_call",
+                    "call_uuid": str(session.uuid),
+                    "chat_uuid": str(chat.uuid),
+                    "room_key": session.room_key,
                     "initiated_by_uuid": str(request.user.uuid),
                     "initiated_by_username": request.user.username or "",
+                    "caller_uuid": str(request.user.uuid),
+                    "caller_name": (
+                        f"{request.user.first_name or ''} {request.user.last_name or ''}".strip()
+                        or request.user.username
+                        or request.user.email
+                    ),
                     "call_type": session.call_type,
+                    "status": session.status,
                 },
                 publish=True,
             )

@@ -505,7 +505,7 @@ class MeAPIView(APIView):
     throttle_scope = "users_me"
 
     def get(self, request):
-        serializer = UserMeSerializer(request.user)
+        serializer = UserMeSerializer(request.user, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request):
@@ -513,6 +513,18 @@ class MeAPIView(APIView):
             request.user,
             data=request.data,
             partial=True,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        serializer = UserMeSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+            context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()

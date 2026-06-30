@@ -69,6 +69,24 @@ services:
       - static_data:/app/var/static
       - media_data:/app/var/media
 
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.django
+    restart: unless-stopped
+    env_file:
+      - ./env/.env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["celery-beat"]
+    volumes:
+      - ./secrets:/app/secrets:ro
+      - static_data:/app/var/static
+      - media_data:/app/var/media
+
   stream-saver:
     build:
       context: .
