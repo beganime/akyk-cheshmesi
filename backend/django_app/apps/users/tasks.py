@@ -56,12 +56,12 @@ def _send_plain_email(subject: str, message: str, email: str) -> None:
     retry_kwargs={"max_retries": 5},
 )
 def send_verification_email(self, email: str, code: str):
-    subject = "Akyl Cheshmesi — код подтверждения email"
+    subject = "Akyl Cheshmesi - email verification code"
     message = (
-        "Здравствуйте!\n\n"
-        f"Ваш код подтверждения: {code}\n\n"
-        "Код действует 10 минут.\n"
-        "Если вы не запрашивали регистрацию, просто проигнорируйте это письмо.\n\n"
+        "Hello!\n\n"
+        f"Your email verification code: {code}\n\n"
+        "The code is valid for 10 minutes.\n"
+        "If you did not request registration, please ignore this email.\n\n"
         "Akyl Cheshmesi"
     )
     _send_plain_email(subject=subject, message=message, email=email)
@@ -75,12 +75,12 @@ def send_verification_email(self, email: str, code: str):
     retry_kwargs={"max_retries": 5},
 )
 def send_password_reset_email(self, email: str, code: str):
-    subject = "Akyl Cheshmesi — код сброса пароля"
+    subject = "Akyl Cheshmesi - password reset code"
     message = (
-        "Здравствуйте!\n\n"
-        f"Ваш код сброса пароля: {code}\n\n"
-        "Код действует 10 минут.\n"
-        "Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо.\n\n"
+        "Hello!\n\n"
+        f"Your password reset code: {code}\n\n"
+        "The code is valid for 10 minutes.\n"
+        "If you did not request a password reset, please ignore this email.\n\n"
         "Akyl Cheshmesi"
     )
     _send_plain_email(subject=subject, message=message, email=email)

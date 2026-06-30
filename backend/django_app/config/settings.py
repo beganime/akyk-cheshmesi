@@ -38,7 +38,8 @@ env = environ.Env(
     STORY_TTL_HOURS=(int, 24),
     SECURE_COOKIES=(bool, False),
     ENABLE_SECURITY_HEADERS=(bool, True),
-    AUTH_EMAILS_ASYNC=(bool, True),
+    AUTH_EMAILS_ASYNC=(bool, False),
+    AUTH_EMAILS_SYNC_FALLBACK=(bool, True),
     FCM_ENABLED=(bool, False),
     PUSH_NOTIFICATIONS_ASYNC=(bool, True),
 )
@@ -114,7 +115,8 @@ MIDDLEWARE = [
 ROOT_URLCONF = "config.urls"
 
 TASKS_EAGER = env.bool("TASKS_EAGER", default=False)
-AUTH_EMAILS_ASYNC = env.bool("AUTH_EMAILS_ASYNC", default=True)
+AUTH_EMAILS_ASYNC = env.bool("AUTH_EMAILS_ASYNC", default=False)
+AUTH_EMAILS_SYNC_FALLBACK = env.bool("AUTH_EMAILS_SYNC_FALLBACK", default=True)
 FCM_ENABLED = env.bool("FCM_ENABLED", default=False)
 PUSH_NOTIFICATIONS_ASYNC = env.bool("PUSH_NOTIFICATIONS_ASYNC", default=True)
 FCM_PROJECT_ID = env("FCM_PROJECT_ID", default="")

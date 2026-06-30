@@ -35,7 +35,12 @@ logger = logging.getLogger(__name__)
 
 
 class EmailDispatchUnavailable(Exception):
-    """Raised when the email task cannot be enqueued."""
+    """Raised when an auth email cannot be sent or queued."""
+
+
+def _run_task_sync(task_func, args):
+    result = task_func.apply(args=args, throw=True)
+    return result.get(propagate=True)
 
 
 def _dispatch_task(task_func, *args):
@@ -50,10 +55,17 @@ def _dispatch_task(task_func, *args):
     - AUTH_EMAILS_ASYNC=false -> синхронно, если ты сам этого хочешь
     """
     tasks_eager = bool(getattr(settings, "TASKS_EAGER", False))
-    run_async = bool(getattr(settings, "AUTH_EMAILS_ASYNC", True)) and not tasks_eager
+    run_async = bool(getattr(settings, "AUTH_EMAILS_ASYNC", False)) and not tasks_eager
 
     if not run_async:
-        return task_func(*args)
+        try:
+            return _run_task_sync(task_func, args)
+        except Exception as exc:
+            logger.exception(
+                "Failed to send task %s synchronously",
+                getattr(task_func, "name", str(task_func)),
+            )
+            raise EmailDispatchUnavailable("Failed to send auth email") from exc
 
     try:
         return task_func.apply_async(
@@ -61,6 +73,20 @@ def _dispatch_task(task_func, *args):
             queue=getattr(settings, "CELERY_TASK_DEFAULT_QUEUE", "default"),
         )
     except Exception as exc:
+        if bool(getattr(settings, "AUTH_EMAILS_SYNC_FALLBACK", True)):
+            logger.exception(
+                "Failed to enqueue task %s; trying synchronous fallback",
+                getattr(task_func, "name", str(task_func)),
+            )
+            try:
+                return _run_task_sync(task_func, args)
+            except Exception as fallback_exc:
+                logger.exception(
+                    "Synchronous fallback failed for task %s",
+                    getattr(task_func, "name", str(task_func)),
+                )
+                raise EmailDispatchUnavailable("Failed to send auth email") from fallback_exc
+
         logger.exception(
             "Failed to enqueue task %s",
             getattr(task_func, "name", str(task_func)),
