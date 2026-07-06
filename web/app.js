@@ -25,7 +25,12 @@
     }
 
     const text = await response.text();
-    const data = text ? JSON.parse(text) : null;
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (error) {
+      data = { detail: text || response.statusText || "Request failed" };
+    }
 
     if (!response.ok) {
       const message = data && (data.detail || data.message || JSON.stringify(data));
@@ -42,13 +47,17 @@
     if (getAccess()) window.location.href = "/messenger/";
 
     const message = document.getElementById("loginMessage");
+    const submitButton = form.querySelector('button[type="submit"]');
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       message.textContent = "Входим...";
+      if (submitButton) submitButton.disabled = true;
 
+      const identifier = document.getElementById("email").value.trim();
       const payload = {
-        email: document.getElementById("email").value.trim(),
+        email: identifier,
+        identifier,
         password: document.getElementById("password").value,
       };
 
@@ -62,7 +71,9 @@
         localStorage.setItem(refreshKey, data.tokens.refresh);
         window.location.href = "/messenger/";
       } catch (error) {
-        message.textContent = error.message;
+        message.textContent = error.message || "Не удалось войти";
+      } finally {
+        if (submitButton) submitButton.disabled = false;
       }
     });
   }

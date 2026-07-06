@@ -321,13 +321,13 @@ class LoginAPIView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        email = serializer.validated_data["email"].strip().lower()
+        identifier = serializer.validated_data["identifier"].strip()
         password = serializer.validated_data["password"]
 
-        user = User.objects.filter(email__iexact=email).first()
+        user = User.objects.filter(Q(email__iexact=identifier) | Q(username__iexact=identifier)).first()
         if not user or not user.check_password(password):
             return Response(
-                {"detail": "Invalid email or password"},
+                {"detail": "Invalid login or password"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

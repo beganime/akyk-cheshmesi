@@ -52,6 +52,7 @@
     const logoUrl = settings.logo_file_url || settings.logo_url;
     if (logoUrl) {
       logos.forEach((logo) => {
+        logo.classList.add('has-image');
         logo.innerHTML = `<img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(settings.company_name || 'Akyl Cheshmesi')}">`;
       });
       return;
@@ -60,6 +61,7 @@
     const staticLogo = new Image();
     staticLogo.onload = () => {
       logos.forEach((logo) => {
+        logo.classList.add('has-image');
         logo.innerHTML = '<img src="/assets/akyl-logo.png" alt="Akyl Cheshmesi">';
       });
     };

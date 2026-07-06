@@ -270,3 +270,22 @@ class UserProfileAPITests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.first_name, "Akyl")
         self.assertEqual(response.data["username"], "profile")
+
+
+class AuthLoginAPITests(TestCase):
+    def setUp(self):
+        self.user = create_active_user("login@example.com", "mobilelogin")
+        self.client = APIClient()
+
+    def test_login_accepts_username_identifier(self):
+        response = self.client.post(
+            "/api/auth/login/",
+            {
+                "identifier": "mobilelogin",
+                "password": "StrongPass123",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("access", response.data["tokens"])

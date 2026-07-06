@@ -46,8 +46,16 @@ class SetPasswordSerializer(serializers.Serializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    email = serializers.CharField(required=False, allow_blank=True, max_length=254)
+    identifier = serializers.CharField(required=False, allow_blank=True, max_length=254)
     password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        identifier = (attrs.get("identifier") or attrs.get("email") or "").strip()
+        if not identifier:
+            raise serializers.ValidationError({"email": "Email or username is required"})
+        attrs["identifier"] = identifier
+        return attrs
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):
