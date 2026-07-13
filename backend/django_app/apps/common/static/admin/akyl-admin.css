@@ -1,0 +1,35 @@
+:root {
+  --akyl-admin-bg: #1c1624;
+  --akyl-admin-panel: #2d2734;
+  --akyl-admin-text: #f1f0ec;
+  --akyl-admin-green: #00f575;
+}
+
+html.dark body,
+html.dark #content { background: var(--akyl-admin-bg); }
+
+html.dark .bg-white,
+html.dark .dark\:bg-gray-900 { background-color: var(--akyl-admin-panel); }
+
+html.dark input[type="file"] {
+  width: 100%;
+  padding: 18px;
+  border: 1px dashed #b997ff;
+  border-radius: 8px;
+  background: #241e2b;
+  color: var(--akyl-admin-text);
+}
+
+html.dark input[type="file"]::file-selector-button {
+  margin-right: 14px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--akyl-admin-green);
+  color: #082416;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+html.dark .button,
+html.dark input[type="submit"] { border-radius: 8px; }

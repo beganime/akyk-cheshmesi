@@ -6,7 +6,10 @@
   <title>Akyl Cheshmesi — Мессенджер для студентов</title>
   <meta name="description" content="Akyl Cheshmesi — безопасный мессенджер и экосистема для студентов: документы, общение, поддержка и поступление.">
   <link rel="stylesheet" href="/site.css">
+  <link rel="stylesheet" href="/doppler.css">
   <script src="/site.js" defer></script>
+  <script src="/vendor/three.min.js" defer></script>
+  <script src="/sphere.js" defer></script>
 </head>
 <body class="site-body brand-site">
   <header class="site-nav">
@@ -20,14 +23,14 @@
       <div class="wrap hero-grid">
         <div>
           <p class="site-kicker reveal">Мессенджер для студентов</p>
-          <h1 class="reveal d1" data-site-hero-title>Общение без границ. Знания без преград.</h1>
+          <h1 class="reveal d1">Akyl Cheshmesi</h1>
           <p class="reveal d2" data-site-hero-subtitle>Akyl Cheshmesi — официальный близкий партнёр компании Student’s Life. Мы объединяем защищённое общение, заявки, документы и поддержку студентов в одном цифровом пространстве.</p>
           <div class="hero-actions reveal d3"><a class="primary-action" href="/login/">Войти в мессенджер</a><a class="secondary-action" href="#request">Оставить заявку</a></div>
           <div class="trust-strip reveal d3"><span data-site-director></span><span>Официальный близкий партнёр Student’s Life</span><span>Документы и сопровождение студентов</span></div>
         </div>
-        <div class="phone-showcase reveal d2">
-          <div class="phone-card"><div class="phone-inner"><div class="phone-topbar"><div class="phone-status"><span>9:41</span><span>▰</span></div><div class="phone-user"><div class="phone-dot">A</div><div><b>Akyl Cheshmesi</b><br><small>Онлайн</small></div></div></div><div class="chat-preview-list"><div class="chat-preview-row"><span class="preview-badge">A</span><div class="bubble">Документы по заявке получены.<small>10:23</small></div></div><div class="chat-preview-row out"><div class="bubble">Хорошо, прикрепляю перевод и паспорт.<small>10:25</small></div></div><div class="chat-preview-row"><span class="preview-badge">S</span><div class="bubble">Куратор Student’s Life подключится к чату.<small>10:26</small></div></div><div class="chat-preview-row out"><div class="bubble">Спасибо, жду дальнейшие шаги.<small>10:27</small></div></div></div><div class="phone-input"><div><span>Сообщение...</span><span class="send-dot">➤</span></div></div></div></div>
-          <div class="float-card float-a"><b>Заявка принята</b><small>Падает в базу сайта</small></div><div class="float-card float-b"><b>Медиа защищены</b><small>Доступ по правам</small></div>
+        <div class="hero-sphere reveal d2" id="heroSphere" aria-label="Интерактивный 3D шар Akyl Cheshmesi">
+          <canvas id="heroSphereCanvas"></canvas>
+          <div class="sphere-caption"><span>Интерактивная сфера</span><strong>Вращайте мышью</strong></div>
         </div>
       </div>
     </section>

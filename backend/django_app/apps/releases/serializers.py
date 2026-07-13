@@ -1,5 +1,6 @@
 from urllib.parse import quote_plus
 
+from django.urls import reverse
 from rest_framework import serializers
 
 from .models import AppRelease
@@ -7,7 +8,7 @@ from .models import AppRelease
 
 class AppReleaseSerializer(serializers.ModelSerializer):
     package_url = serializers.SerializerMethodField()
-    resolved_download_url = serializers.CharField(read_only=True)
+    resolved_download_url = serializers.SerializerMethodField()
     qr_code_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -40,11 +41,14 @@ class AppReleaseSerializer(serializers.ModelSerializer):
         if not obj.package_file:
             return ""
         request = self.context.get("request")
-        url = obj.package_file.url
+        url = reverse("app-release-download", kwargs={"release_uuid": obj.uuid})
         return request.build_absolute_uri(url) if request else url
 
+    def get_resolved_download_url(self, obj: AppRelease) -> str:
+        return self.get_package_url(obj) or obj.download_url or obj.google_play_url or obj.testflight_url
+
     def get_qr_code_url(self, obj: AppRelease) -> str:
-        link = obj.resolved_download_url
+        link = self.get_resolved_download_url(obj)
         if not link:
             return ""
         return f"https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={quote_plus(link)}"

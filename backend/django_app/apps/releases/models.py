@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -66,13 +67,24 @@ class AppRelease(UUIDTimeStampedModel):
         if self.platform == self.Platform.ANDROID and self.package_file:
             file_name = self.package_file.name.lower()
             if not file_name.endswith(".apk"):
-                raise ValidationError({"package_file": "Для Android загружайте файл APK."})
+                raise ValidationError({"package_file": "Для Android загрузите файл с расширением .apk."})
+
+            max_size = int(getattr(settings, "APP_RELEASE_MAX_UPLOAD_SIZE_BYTES", 256 * 1024 * 1024))
+            try:
+                package_size = self.package_file.size
+            except (AttributeError, OSError):
+                package_size = 0
+            if package_size > max_size:
+                max_size_mb = max_size // (1024 * 1024)
+                raise ValidationError(
+                    {"package_file": f"APK превышает допустимый размер {max_size_mb} МБ."}
+                )
 
     def save(self, *args, **kwargs):
-        if self.package_file and not self.file_size_bytes:
+        if self.package_file:
             try:
                 self.file_size_bytes = self.package_file.size
-            except Exception:
+            except (AttributeError, OSError):
                 self.file_size_bytes = 0
         if self.platform and self.platform not in self.available_platforms:
             self.available_platforms = [*self.available_platforms, self.platform]

@@ -1,4 +1,5 @@
 ﻿from django.urls import reverse_lazy
+from django.templatetags.static import static
 from django.utils.translation import gettext_lazy as _
 from datetime import timedelta
 from pathlib import Path
@@ -23,6 +24,7 @@ env = environ.Env(
     REDIS_HISTORY_TTL_SECONDS=(int, 604800),
     REDIS_PRESENCE_TTL_SECONDS=(int, 90),
     MEDIA_MAX_UPLOAD_SIZE_BYTES=(int, 26214400),
+    APP_RELEASE_MAX_UPLOAD_SIZE_BYTES=(int, 268435456),
     MEDIA_SIGNED_URL_TTL_SECONDS=(int, 3600),
     MEDIA_USE_X_ACCEL_REDIRECT=(bool, True),
     MAX_UPLOAD_SIZE_MB=(int, 25),
@@ -212,6 +214,12 @@ MEDIA_MAX_UPLOAD_SIZE_BYTES = env.int(
     "MEDIA_MAX_UPLOAD_SIZE_BYTES",
     default=MAX_UPLOAD_SIZE_MB * 1024 * 1024,
 )
+APP_RELEASE_MAX_UPLOAD_SIZE_BYTES = env.int(
+    "APP_RELEASE_MAX_UPLOAD_SIZE_BYTES",
+    default=256 * 1024 * 1024,
+)
+# Large packages are streamed to disk instead of living in a Gunicorn worker.
+FILE_UPLOAD_MAX_MEMORY_SIZE = env.int("FILE_UPLOAD_MAX_MEMORY_SIZE", default=2_621_440)
 IMAGE_MAX_WIDTH = env.int("IMAGE_MAX_WIDTH", default=1920)
 IMAGE_MAX_HEIGHT = env.int("IMAGE_MAX_HEIGHT", default=1920)
 IMAGE_THUMBNAIL_SIZE = env.int("IMAGE_THUMBNAIL_SIZE", default=480)
@@ -373,9 +381,27 @@ SPECTACULAR_SETTINGS = {
 UNFOLD = {
     "SITE_TITLE": "Akyl Cheshmesi Admin",
     "SITE_HEADER": "Akyl Cheshmesi",
+    "SITE_SUBHEADER": "Управление мессенджером и релизами",
+    "SITE_SYMBOL": "hub",
     "SITE_URL": "/",
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": True,
+    "STYLES": [lambda request: static("admin/akyl-admin.css")],
+    "COLORS": {
+        "primary": {
+            "50": "247 243 255",
+            "100": "237 227 255",
+            "200": "216 200 255",
+            "300": "185 151 255",
+            "400": "155 111 250",
+            "500": "141 99 246",
+            "600": "116 73 220",
+            "700": "93 58 178",
+            "800": "75 48 140",
+            "900": "61 40 110",
+            "950": "37 22 68",
+        },
+    },
 }
 
 def _unique_origins(*origin_groups):

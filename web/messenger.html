@@ -3,41 +3,81 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1c1624">
   <title>Akyl Cheshmesi — Web Messenger</title>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/doppler.css">
 </head>
 <body class="messenger-body">
   <main class="messenger-app">
     <aside class="left-panel chat-sidebar" id="chatSidebar">
       <div class="top-bar sidebar-head">
-        <button class="icon-button" id="menuToggle" type="button" aria-label="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-        <label class="search-wrapper search-box"><svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><input id="chatSearch" class="search-input" type="search" placeholder="Поиск по чатам, телефону или @никнейму" autocomplete="off"></label>
-        <button class="icon-button" id="themeToggle" type="button" aria-label="Тема"><svg viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M3 12h2M19 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/><circle cx="12" cy="12" r="4"/></svg></button>
+        <button class="icon-button" id="menuToggle" type="button" aria-label="Меню" title="Меню"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <label class="search-wrapper search-box"><svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg><input id="chatSearch" class="search-input" type="search" placeholder="Поиск" autocomplete="off"></label>
+        <button class="icon-button" id="themeToggle" type="button" aria-label="Сменить тему" title="Сменить тему"><svg viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M3 12h2M19 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/><circle cx="12" cy="12" r="4"/></svg></button>
       </div>
-      <div class="tabs" role="tablist"><button class="tab active" type="button" data-tab="chats">Чаты</button><button class="tab" type="button" data-tab="contacts">Контакты</button></div>
+      <div class="stories-strip" id="storiesStrip" aria-label="Истории"></div>
+      <div class="tabs" role="tablist">
+        <button class="tab active" type="button" data-tab="chats">Чаты</button>
+        <button class="tab" type="button" data-tab="contacts">Контакты</button>
+        <button class="tab" type="button" data-tab="feed">Лента</button>
+      </div>
       <div class="list-container chat-list" id="chatList"></div>
       <div class="drawer-overlay" id="drawerOverlay"></div>
       <div class="drawer" id="drawer">
-        <div class="drawer-header"><div class="drawer-user"><div class="drawer-avatar" id="drawerAvatar">A</div><div class="drawer-name" id="drawerName">Akyl Cheshmesi</div><div class="drawer-phone" id="drawerPhone">—</div><div class="drawer-username" id="drawerUsername">@user</div></div><button class="drawer-close" id="drawerClose" type="button" aria-label="Закрыть"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
-        <div class="drawer-menu">
-          <button class="drawer-item" type="button" data-action="account"><svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg><span class="drawer-item-text">Мой аккаунт</span></button>
-          <button class="drawer-item" type="button" data-action="notifications"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span class="drawer-item-text">Уведомления</span><span class="toggle-switch active" id="notificationsToggle"></span></button>
-          <button class="drawer-item" type="button" data-action="privacy"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span class="drawer-item-text">Конфиденциальность</span></button>
-          <button class="drawer-item" type="button" data-action="language"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg><span class="drawer-item-text">Язык</span><span class="drawer-item-value">Русский</span></button>
+        <div class="drawer-header">
+          <div class="drawer-user"><div class="drawer-avatar" id="drawerAvatar">A</div><div class="drawer-name" id="drawerName">Akyl Cheshmesi</div><div class="drawer-phone" id="drawerPhone">—</div><div class="drawer-username" id="drawerUsername">@user</div></div>
+          <button class="drawer-close" id="drawerClose" type="button" aria-label="Закрыть" title="Закрыть"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        </div>
+        <nav class="drawer-menu" aria-label="Меню пользователя">
+          <a class="drawer-item" href="/privacy/"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span class="drawer-item-text">Конфиденциальность</span></a>
+          <a class="drawer-item" href="/support/"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 1 1 5.4 1.8c-1.5 1-2.5 1.6-2.5 3.2M12 18h.01"/></svg><span class="drawer-item-text">Поддержка</span></a>
           <button class="drawer-item" type="button" data-action="theme"><svg viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M3 12h2M19 12h2"/><circle cx="12" cy="12" r="4"/></svg><span class="drawer-item-text">Оформление</span><span class="drawer-item-value" id="currentThemeLabel">Тёмная</span></button>
           <button class="drawer-item drawer-logout" id="logoutButton" type="button"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg><span class="drawer-item-text">Выйти</span></button>
-        </div>
+        </nav>
       </div>
     </aside>
+
     <section class="right-panel chat-pane" id="rightPanel">
-      <div class="empty-state" id="emptyState"><div class="empty-state-box">Выберите чат или контакт, чтобы начать переписку</div></div>
+      <div class="empty-state" id="emptyState"><div class="empty-state-box"><strong>Akyl Cheshmesi</strong><span>Выберите чат, чтобы начать общение</span></div></div>
+      <section class="feed-view" id="feedView" aria-label="Лента"><header class="feed-header"><button class="icon-button mobile-only" id="feedBackButton" type="button" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><strong>Лента</strong><span>Истории сообщества</span></div><button class="primary-compact" id="addStoryButton" type="button">Добавить</button></header><div class="feed-list" id="feedList"></div></section>
       <div class="chat-view" id="chatView">
-        <header class="chat-header"><button class="icon-button mobile-only" id="backToChats" type="button" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div class="chat-header-avatar avatar" id="activeAvatar">A</div><div class="chat-header-info"><div class="chat-header-name" id="activeChatTitle">Выберите чат</div><div class="chat-header-status" id="activeChatStatus">Статус появится здесь</div></div><div class="chat-header-actions"><button class="icon-button" id="audioCallButton" type="button" aria-label="Аудиозвонок"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.11 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.63 2.6a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.48-1.2a2 2 0 0 1 2.11-.45c.83.3 1.7.51 2.6.63A2 2 0 0 1 22 16.92z"/></svg></button><button class="icon-button" id="videoCallButton" type="button" aria-label="Видеозвонок"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M17 9l4-2v10l-4-2"/></svg></button></div></header>
+        <header class="chat-header">
+          <button class="icon-button mobile-only" id="backToChats" type="button" aria-label="Назад"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+          <div class="chat-header-avatar avatar" id="activeAvatar">A</div>
+          <div class="chat-header-info"><div class="chat-header-name" id="activeChatTitle">Выберите чат</div><div class="chat-header-status" id="activeChatStatus">Статус появится здесь</div></div>
+          <div class="chat-header-actions">
+            <button class="icon-button" id="audioCallButton" type="button" aria-label="Аудиозвонок" title="Аудиозвонок"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.11 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.63 2.6a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.48-1.2a2 2 0 0 1 2.11-.45c.83.3 1.7.51 2.6.63A2 2 0 0 1 22 16.92z"/></svg></button>
+            <button class="icon-button" id="videoCallButton" type="button" aria-label="Видеозвонок" title="Видеозвонок"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M17 9l4-2v10l-4-2"/></svg></button>
+          </div>
+        </header>
         <div class="messages-area messages" id="messages"></div>
-        <form class="input-area composer" id="messageForm"><div class="input-wrapper"><button class="input-btn icon-button" id="attachButton" type="button" aria-label="Прикрепить"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button><input id="fileInput" type="file" hidden><textarea class="message-input" id="messageInput" placeholder="Напишите сообщение..." rows="1" autocomplete="off"></textarea><button class="input-btn send send-button" id="sendButton" type="submit" aria-label="Отправить"><svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button></div></form>
+        <form class="input-area composer" id="messageForm"><div class="input-wrapper"><button class="input-btn icon-button" id="attachButton" type="button" aria-label="Прикрепить" title="Прикрепить файл"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button><input id="fileInput" type="file" hidden><textarea class="message-input" id="messageInput" placeholder="Сообщение" rows="1" autocomplete="off"></textarea><button class="input-btn send send-button" id="sendButton" type="submit" aria-label="Отправить" title="Отправить"><svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button></div></form>
       </div>
     </section>
   </main>
+
+  <div class="modal" id="addStoryModal" role="dialog" aria-modal="true" aria-labelledby="storyModalTitle">
+    <div class="modal-card story-editor"><header><div><strong id="storyModalTitle">Новая история</strong><span>Фото, видео или текст</span></div><button class="icon-button" id="addStoryModalClose" type="button" aria-label="Закрыть"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></header><div class="story-upload" id="imageUploadArea" role="button" tabindex="0"><input id="storyFileInput" type="file" accept="image/*,video/*" hidden><img id="imagePreview" alt=""><video id="videoPreview" muted playsinline></video><span>Выбрать фото или видео</span><button class="remove-story-media" id="removeImageButton" type="button" aria-label="Удалить">×</button></div><textarea id="storyTextInput" rows="4" maxlength="500" placeholder="Что нового?"></textarea><footer><button class="secondary-compact" id="cancelStoryButton" type="button">Отмена</button><button class="primary-compact" id="publishStoryButton" type="button">Опубликовать</button></footer></div>
+  </div>
+
+  <div class="story-viewer" id="storyViewer" role="dialog" aria-modal="true"><div class="story-viewer-card"><div class="story-progress"><span id="storyProgressFill"></span></div><header><div class="story-viewer-avatar" id="storyViewerAvatar">A</div><div><strong id="storyViewerName">История</strong><span id="storyViewerTime">сейчас</span></div><button class="icon-button" id="storyViewerClose" type="button" aria-label="Закрыть"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button></header><div class="story-content"><img id="storyViewerImage" alt=""><video id="storyViewerVideo" controls playsinline></video><p id="storyViewerText"></p></div></div></div>
+
+  <div class="modal call-modal" id="callModal" role="dialog" aria-modal="true" aria-labelledby="callModalTitle">
+    <div class="modal-card call-card">
+      <button class="icon-button call-close" id="callModalClose" type="button" aria-label="Закрыть"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <div class="call-media"><video id="remoteVideo" autoplay playsinline></video><video id="localVideo" autoplay muted playsinline></video><div class="call-avatar" id="callModalAvatar">A</div></div>
+      <div class="call-copy"><h2 id="callModalTitle">Звонок</h2><p id="callModalSubtitle">Подключение…</p><span id="callDuration">00:00</span></div>
+      <div class="call-actions">
+        <button class="call-control accept" id="callAcceptButton" type="button" aria-label="Принять" title="Принять"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.8 19.8 0 0 1 3 5.18 2 2 0 0 1 5 3h3"/></svg></button>
+        <button class="call-control" id="callMuteButton" type="button" aria-label="Микрофон" title="Микрофон"><svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg></button>
+        <button class="call-control" id="callCameraButton" type="button" aria-label="Камера" title="Камера"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M17 9l4-2v10l-4-2"/></svg></button>
+        <button class="call-control decline" id="callDeclineButton" type="button" aria-label="Отклонить" title="Отклонить"><svg viewBox="0 0 24 24"><path d="M4.5 15.5c4-4 11-4 15 0M7 13l-2-3M17 13l2-3"/></svg></button>
+        <button class="call-control decline" id="callHangupButton" type="button" aria-label="Завершить" title="Завершить"><svg viewBox="0 0 24 24"><path d="M4.5 15.5c4-4 11-4 15 0M7 13l-2-3M17 13l2-3"/></svg></button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
   <script src="/app.js"></script>
 </body>
