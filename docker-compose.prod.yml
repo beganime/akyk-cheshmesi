@@ -141,6 +141,7 @@ services:
 
   coturn:
     image: coturn/coturn:4.6.3-alpine
+    profiles: ["managed-turn"]
     restart: unless-stopped
     env_file:
       - ./env/.env.prod

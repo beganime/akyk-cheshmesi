@@ -49,3 +49,16 @@ class CallIceConfigAPITests(TestCase):
         response = self.client.get("/api/v1/calls/ice-config/")
 
         self.assertEqual(response.status_code, 401)
+
+    @override_settings(
+        CALL_TURN_SECRET="",
+        CALL_TURN_USERNAME="existing-user",
+        CALL_TURN_CREDENTIAL="existing-password",
+    )
+    def test_supports_existing_long_term_turn_credentials(self):
+        response = self.client.get("/api/v1/calls/ice-config/")
+
+        self.assertEqual(response.status_code, 200)
+        turn_config = response.data["ice_servers"][1]
+        self.assertEqual(turn_config["username"], "existing-user")
+        self.assertEqual(turn_config["credential"], "existing-password")

@@ -62,6 +62,8 @@ class CallIceConfigAPIView(APIView):
 
         turn_urls = list(getattr(settings, "CALL_TURN_URLS", []) or [])
         turn_secret = str(getattr(settings, "CALL_TURN_SECRET", "") or "")
+        turn_username = str(getattr(settings, "CALL_TURN_USERNAME", "") or "")
+        turn_credential = str(getattr(settings, "CALL_TURN_CREDENTIAL", "") or "")
         if turn_urls and turn_secret:
             ttl_seconds = max(int(getattr(settings, "CALL_TURN_TTL_SECONDS", 3600)), 60)
             username = f"{int(time.time()) + ttl_seconds}:{request.user.uuid}"
@@ -73,6 +75,14 @@ class CallIceConfigAPIView(APIView):
                     "urls": turn_urls,
                     "username": username,
                     "credential": credential,
+                }
+            )
+        elif turn_urls and turn_username and turn_credential:
+            ice_servers.append(
+                {
+                    "urls": turn_urls,
+                    "username": turn_username,
+                    "credential": turn_credential,
                 }
             )
 

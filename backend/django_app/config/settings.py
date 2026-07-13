@@ -147,6 +147,8 @@ CALL_STUN_URLS = env.list(
 )
 CALL_TURN_URLS = env.list("CALL_TURN_URLS", default=[])
 CALL_TURN_SECRET = env("CALL_TURN_SECRET", default="")
+CALL_TURN_USERNAME = env("CALL_TURN_USERNAME", default="")
+CALL_TURN_CREDENTIAL = env("CALL_TURN_CREDENTIAL", default="")
 CALL_TURN_TTL_SECONDS = env.int("CALL_TURN_TTL_SECONDS", default=3600)
 CELERY_BEAT_SCHEDULE = {
     "expire-stale-call-sessions": {
