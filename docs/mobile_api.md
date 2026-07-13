@@ -635,6 +635,7 @@ python manage.py delete_expired_stories
 
 Media stream is WebRTC. Server stores call status/history and relays signaling.
 
+- `GET /api/v1/calls/ice-config/` returns authenticated STUN/TURN configuration with short-lived TURN credentials.
 - `POST /api/v1/chats/{chat_uuid}/calls/`
 - `POST /api/v1/calls/{call_uuid}/accept/`
 - `POST /api/v1/calls/{call_uuid}/decline/`

@@ -50,7 +50,7 @@ def publish_chat_realtime_event(chat_uuid, event_type: str, payload: dict[str, A
     try:
         client = get_redis_client()
         client.publish(
-            settings.REDIS_REALTIME_EVENTS_CHANNEL,
+            getattr(settings, "REDIS_REALTIME_EVENTS_CHANNEL", "realtime:events"),
             json.dumps(envelope, default=str),
         )
         logger.info(

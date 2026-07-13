@@ -4,6 +4,12 @@
   const refreshKey = "akyl_refresh";
   const themeKey = "akyl_theme";
 
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    });
+  }
+
   function getAccess() {
     return localStorage.getItem(accessKey);
   }
@@ -107,6 +113,9 @@
       pendingIce: [],
       callDurationTimer: null,
       callStartedAt: null,
+      iceServers: null,
+      socketReconnectTimer: null,
+      socketReconnectAttempts: 0,
     };
 
     const $ = (id) => document.getElementById(id);
@@ -276,6 +285,7 @@
     async function bootstrap() {
       state.me = await api("/users/me/");
       renderMe();
+      void loadIceServers();
       await Promise.allSettled([loadStories(), loadContacts(), loadChats()]);
       connectSocket();
     }
@@ -724,7 +734,7 @@
 
       let createdCall = null;
       try {
-        const localStream = await requestCallMedia(callType);
+        const [localStream] = await Promise.all([requestCallMedia(callType), loadIceServers()]);
         const call = await api(`/chats/${state.activeChat.uuid}/calls/`, {
           method: "POST",
           body: JSON.stringify({
@@ -769,10 +779,25 @@
       }
     }
 
+    async function loadIceServers() {
+      if (state.iceServers) return state.iceServers;
+      try {
+        const config = await api("/calls/ice-config/");
+        if (Array.isArray(config?.ice_servers) && config.ice_servers.length) {
+          state.iceServers = config.ice_servers;
+          return state.iceServers;
+        }
+      } catch (error) {
+        console.warn("ICE configuration unavailable", error);
+      }
+      state.iceServers = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
+      return state.iceServers;
+    }
+
     async function createPeerConnection() {
       state.peerConnection?.close();
       const connection = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        iceServers: await loadIceServers(),
       });
       state.peerConnection = connection;
       state.remoteStream = new MediaStream();
@@ -785,6 +810,7 @@
         event.streams[0]?.getTracks().forEach((track) => {
           if (!state.remoteStream.getTracks().some((item) => item.id === track.id)) state.remoteStream.addTrack(track);
         });
+        elements.remoteVideo.closest(".call-media")?.classList.add("remote-ready");
         elements.callModalSubtitle.textContent = "Соединение установлено";
         startCallTimer();
       });
@@ -818,7 +844,7 @@
       if (!call || call.isCaller) return;
       elements.callModalSubtitle.textContent = "Подключаем устройства…";
       try {
-        state.localStream = await requestCallMedia(call.callType);
+        [state.localStream] = await Promise.all([requestCallMedia(call.callType), loadIceServers()]);
         await createPeerConnection();
         await api(`/calls/${call.uuid}/accept/`, {
           method: "POST",
@@ -950,6 +976,7 @@
       state.remoteStream = null;
       elements.localVideo.srcObject = null;
       elements.remoteVideo.srcObject = null;
+      elements.remoteVideo.closest(".call-media")?.classList.remove("remote-ready");
       setCallVideoMode(false);
     }
 
@@ -1155,21 +1182,41 @@
       elements.storyViewerVideo.pause();
     }
 
-    function connectSocket() {
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      state.socket = new WebSocket(`${protocol}://${window.location.host}/ws?token=${encodeURIComponent(getAccess())}`);
+    function scheduleSocketReconnect() {
+      clearTimeout(state.socketReconnectTimer);
+      const exponent = Math.min(state.socketReconnectAttempts, 5);
+      const delay = Math.min(1000 * (2 ** exponent), 30000) + Math.floor(Math.random() * 400);
+      state.socketReconnectAttempts += 1;
+      state.socketReconnectTimer = setTimeout(connectSocket, delay);
+    }
 
-      state.socket.addEventListener("open", () => {
+    function connectSocket() {
+      clearTimeout(state.socketReconnectTimer);
+      if (!getAccess() || !navigator.onLine) {
+        scheduleSocketReconnect();
+        return;
+      }
+      if (state.socket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(state.socket.readyState)) return;
+
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      const socket = new WebSocket(`${protocol}://${window.location.host}/ws?token=${encodeURIComponent(getAccess())}`);
+      state.socket = socket;
+
+      socket.addEventListener("open", () => {
+        state.socketReconnectAttempts = 0;
         state.chats.forEach((chat) => {
-          state.socket.send(JSON.stringify({ type: "subscribe_chat", chat_uuid: chat.uuid }));
+          socket.send(JSON.stringify({ type: "subscribe_chat", chat_uuid: chat.uuid }));
         });
       });
 
-      state.socket.addEventListener("close", () => {
-        setTimeout(connectSocket, 3000);
+      socket.addEventListener("close", () => {
+        if (state.socket === socket) state.socket = null;
+        scheduleSocketReconnect();
       });
 
-      state.socket.addEventListener("message", (event) => {
+      socket.addEventListener("error", () => socket.close());
+
+      socket.addEventListener("message", (event) => {
         try {
           const payload = JSON.parse(event.data);
           const message = payload?.payload?.message;
@@ -1183,6 +1230,14 @@
         }
       });
     }
+
+    window.addEventListener("online", () => {
+      state.socketReconnectAttempts = 0;
+      connectSocket();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") connectSocket();
+    });
 
     async function handleCallSocketEvent(envelope) {
       const type = String(envelope?.type || "").toLowerCase();

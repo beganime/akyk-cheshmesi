@@ -6,6 +6,7 @@ from .views import (
     CallDetailAPIView,
     CallEndAPIView,
     CallHistoryListAPIView,
+    CallIceConfigAPIView,
     CallMissedAPIView,
     CallRejectAPIView,
     CallSignalCreateAPIView,
@@ -14,6 +15,7 @@ from .views import (
 
 urlpatterns = [
     path("calls/", CallHistoryListAPIView.as_view(), name="call-history"),
+    path("calls/ice-config/", CallIceConfigAPIView.as_view(), name="call-ice-config"),
     path("calls/<uuid:call_uuid>/", CallDetailAPIView.as_view(), name="call-detail"),
     path("calls/<uuid:call_uuid>/accept/", CallAcceptAPIView.as_view(), name="call-accept"),
     path("calls/<uuid:call_uuid>/decline/", CallRejectAPIView.as_view(), name="call-decline"),

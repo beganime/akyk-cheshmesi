@@ -1,3 +1,9 @@
+import base64
+import hashlib
+import hmac
+import time
+
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
@@ -43,6 +49,34 @@ def call_queryset_for_user(user):
         .distinct()
         .order_by("-created_at")
     )
+
+
+class CallIceConfigAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        ice_servers = []
+        stun_urls = list(getattr(settings, "CALL_STUN_URLS", []) or [])
+        if stun_urls:
+            ice_servers.append({"urls": stun_urls})
+
+        turn_urls = list(getattr(settings, "CALL_TURN_URLS", []) or [])
+        turn_secret = str(getattr(settings, "CALL_TURN_SECRET", "") or "")
+        if turn_urls and turn_secret:
+            ttl_seconds = max(int(getattr(settings, "CALL_TURN_TTL_SECONDS", 3600)), 60)
+            username = f"{int(time.time()) + ttl_seconds}:{request.user.uuid}"
+            credential = base64.b64encode(
+                hmac.new(turn_secret.encode("utf-8"), username.encode("utf-8"), hashlib.sha1).digest()
+            ).decode("ascii")
+            ice_servers.append(
+                {
+                    "urls": turn_urls,
+                    "username": username,
+                    "credential": credential,
+                }
+            )
+
+        return Response({"ice_servers": ice_servers})
 
 
 class CallHistoryListAPIView(generics.ListAPIView):

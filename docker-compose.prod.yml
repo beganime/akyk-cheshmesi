@@ -139,6 +139,21 @@ services:
       timeout: 5s
       retries: 10
 
+  coturn:
+    image: coturn/coturn:4.6.3-alpine
+    restart: unless-stopped
+    env_file:
+      - ./env/.env.prod
+    entrypoint: ["/bin/sh", "/opt/akyl/start-coturn.sh"]
+    volumes:
+      - ./deploy/coturn/start-coturn.sh:/opt/akyl/start-coturn.sh:ro
+    ports:
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+      - "49160-49200:49160-49200/udp"
+    security_opt:
+      - no-new-privileges:true
+
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped

@@ -48,6 +48,7 @@ env = environ.Env(
     PUSH_NOTIFICATIONS_ASYNC=(bool, False),
     CALL_MAX_DURATION_SECONDS=(int, 3600),
     CALL_PENDING_TIMEOUT_SECONDS=(int, 60),
+    CALL_TURN_TTL_SECONDS=(int, 3600),
 )
 
 env_file = PROJECT_ROOT / ".env"
@@ -140,6 +141,13 @@ APNS_AUTH_KEY_PATH = env("APNS_AUTH_KEY_PATH", default="")
 APNS_AUTH_KEY = env("APNS_AUTH_KEY", default="")
 CALL_MAX_DURATION_SECONDS = env.int("CALL_MAX_DURATION_SECONDS", default=3600)
 CALL_PENDING_TIMEOUT_SECONDS = env.int("CALL_PENDING_TIMEOUT_SECONDS", default=60)
+CALL_STUN_URLS = env.list(
+    "CALL_STUN_URLS",
+    default=["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"],
+)
+CALL_TURN_URLS = env.list("CALL_TURN_URLS", default=[])
+CALL_TURN_SECRET = env("CALL_TURN_SECRET", default="")
+CALL_TURN_TTL_SECONDS = env.int("CALL_TURN_TTL_SECONDS", default=3600)
 CELERY_BEAT_SCHEDULE = {
     "expire-stale-call-sessions": {
         "task": "apps.calls.tasks.expire_stale_call_sessions",
@@ -173,13 +181,23 @@ DATABASES = {
 }
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
 
+REDIS_CACHE_URL = env("REDIS_CACHE_URL", default="redis://127.0.0.1:6379/0")
+REDIS_REALTIME_EVENTS_CHANNEL = env("REDIS_REALTIME_EVENTS_CHANNEL", default="realtime:events")
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": env("REDIS_CACHE_URL", default="redis://127.0.0.1:6379/0"),
+        "LOCATION": REDIS_CACHE_URL,
         "TIMEOUT": 300,
     }
 }
+
+# RabbitMQ is not part of the production stack. Keep every background worker on
+# the same Redis service used by Django unless an explicit broker is supplied.
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=REDIS_CACHE_URL)
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=CELERY_BROKER_URL)
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TASK_DEFAULT_QUEUE = env("CELERY_TASK_DEFAULT_QUEUE", default="default")
 
 AUTH_PASSWORD_VALIDATORS = [
     {

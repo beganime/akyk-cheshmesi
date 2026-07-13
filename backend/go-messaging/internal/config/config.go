@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -113,6 +114,9 @@ func (c Config) Addr() string {
 
 func (c Config) IsAllowedOrigin(origin string, host string) bool {
 	if origin == "" {
+		return true
+	}
+	if parsedOrigin, err := url.Parse(origin); err == nil && strings.EqualFold(parsedOrigin.Host, host) {
 		return true
 	}
 	if len(c.AllowedOrigins) == 0 {
