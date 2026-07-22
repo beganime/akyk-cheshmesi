@@ -1,4 +1,4 @@
-const CACHE_NAME = "akyl-web-v3";
+const CACHE_NAME = "akyl-web-v5";
 const STATIC_PATHS = [
   "/",
   "/login/",
@@ -12,6 +12,7 @@ const STATIC_PATHS = [
   "/doppler.css",
   "/site.js",
   "/app.js",
+  "/storage.js",
   "/sphere.js",
   "/vendor/three.min.js",
 ];
@@ -21,6 +22,45 @@ self.addEventListener("install", (event) => {
     caches.open(CACHE_NAME).then((cache) => Promise.all(
       STATIC_PATHS.map((path) => cache.add(path).catch(() => null))
     )).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (error) {
+    payload = { title: "Akyl Cheshmesi", body: event.data ? event.data.text() : "Новое событие" };
+  }
+
+  const data = payload.data || {};
+  const isCall = ["call", "incoming_call"].includes(data.type);
+  event.waitUntil(self.registration.showNotification(payload.title || "Akyl Cheshmesi", {
+    body: payload.body || "Новое событие",
+    icon: "/assets/akyl_logo.png",
+    badge: "/assets/akyl_logo.png",
+    tag: payload.tag || `${data.type || "message"}:${data.call_uuid || data.message_uuid || data.chat_uuid || "new"}`,
+    renotify: isCall,
+    requireInteraction: isCall,
+    data: { ...data, url: payload.url || "/messenger/" },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || "/messenger/";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (windows) => {
+      const target = new URL(targetUrl, self.location.origin);
+      for (const client of windows) {
+        if (new URL(client.url).origin === target.origin) {
+          await client.focus();
+          if ("navigate" in client) await client.navigate(target.href);
+          return;
+        }
+      }
+      return clients.openWindow(target.href);
+    })
   );
 });
 

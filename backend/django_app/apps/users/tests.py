@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
-from apps.users.models import DevicePushToken, User
+from apps.users.models import BrowserPushSubscription, DevicePushToken, User
 from apps.users.push_services import _fcm_payload, dispatch_call_push, send_message_push_by_id, send_push_to_user_ids
 from apps.chats.models import Chat, ChatMember
 from apps.calls.models import CallParticipant, CallSession
@@ -114,6 +114,40 @@ class PushTokenAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(DevicePushToken.objects.get(token="token-to-delete").is_active)
 
+    @override_settings(
+        WEB_PUSH_ENABLED=True,
+        WEB_PUSH_VAPID_PUBLIC_KEY="public-key",
+        WEB_PUSH_VAPID_PRIVATE_KEY="private-key",
+    )
+    def test_register_browser_push_subscription(self):
+        response = self.client.post(
+            "/api/web-push/subscriptions/",
+            {
+                "endpoint": "https://push.example.test/subscription-1",
+                "keys": {"p256dh": "browser-public-key", "auth": "browser-auth-key"},
+                "device_id": "web-browser-1",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        subscription = BrowserPushSubscription.objects.get()
+        self.assertEqual(subscription.user, self.user)
+        self.assertTrue(subscription.is_active)
+        self.assertEqual(subscription.device_id, "web-browser-1")
+
+    @override_settings(
+        WEB_PUSH_ENABLED=True,
+        WEB_PUSH_VAPID_PUBLIC_KEY="public-key",
+        WEB_PUSH_VAPID_PRIVATE_KEY="private-key",
+    )
+    def test_browser_push_config_returns_public_key(self):
+        response = self.client.get("/api/web-push/config/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["enabled"])
+        self.assertEqual(response.data["public_key"], "public-key")
+
     def test_fcm_payload_uses_message_channel_by_default(self):
         push_token = DevicePushToken(token="fcm-token-1")
 
@@ -170,6 +204,32 @@ class PushTokenAPITests(TestCase):
         self.assertEqual(result.attempted_count, 1)
         self.assertEqual(result.sent_count, 1)
         send_mock.assert_called_once()
+
+    @override_settings(
+        WEB_PUSH_ENABLED=True,
+        WEB_PUSH_VAPID_PUBLIC_KEY="public-key",
+        WEB_PUSH_VAPID_PRIVATE_KEY="private-key",
+    )
+    def test_send_push_to_user_ids_sends_browser_subscription(self):
+        subscription = BrowserPushSubscription.objects.create(
+            user=self.user,
+            endpoint="https://push.example.test/subscription-1",
+            p256dh="browser-public-key",
+            auth="browser-auth-key",
+            device_id="web-browser-1",
+        )
+
+        with patch("apps.users.push_services._send_browser_push", return_value=True) as send_mock:
+            result = send_push_to_user_ids(
+                [self.user.id],
+                "New message",
+                "Hello",
+                {"type": "message", "chat_uuid": "chat-1"},
+            )
+
+        self.assertEqual(result.attempted_count, 1)
+        self.assertEqual(result.sent_count, 1)
+        send_mock.assert_called_once_with(subscription, "New message", "Hello", {"type": "message", "chat_uuid": "chat-1"})
 
 
 class PushDeliveryTests(TestCase):

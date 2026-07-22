@@ -46,6 +46,7 @@ env = environ.Env(
     APNS_ENABLED=(bool, False),
     APNS_USE_SANDBOX=(bool, False),
     PUSH_NOTIFICATIONS_ASYNC=(bool, False),
+    WEB_PUSH_ENABLED=(bool, False),
     CALL_MAX_DURATION_SECONDS=(int, 3600),
     CALL_PENDING_TIMEOUT_SECONDS=(int, 60),
     CALL_TURN_TTL_SECONDS=(int, 3600),
@@ -128,6 +129,13 @@ FCM_ENABLED = env.bool("FCM_ENABLED", default=False)
 APNS_ENABLED = env.bool("APNS_ENABLED", default=False)
 APNS_USE_SANDBOX = env.bool("APNS_USE_SANDBOX", default=False)
 PUSH_NOTIFICATIONS_ASYNC = env.bool("PUSH_NOTIFICATIONS_ASYNC", default=False)
+WEB_PUSH_ENABLED = env.bool("WEB_PUSH_ENABLED", default=False)
+WEB_PUSH_VAPID_PUBLIC_KEY = env("WEB_PUSH_VAPID_PUBLIC_KEY", default="")
+WEB_PUSH_VAPID_PRIVATE_KEY = env("WEB_PUSH_VAPID_PRIVATE_KEY", default="")
+WEB_PUSH_VAPID_SUBJECT = env(
+    "WEB_PUSH_VAPID_SUBJECT",
+    default="mailto:support@akyl-cheshmesi.ru",
+)
 FCM_PROJECT_ID = env("FCM_PROJECT_ID", default="")
 FCM_SERVICE_ACCOUNT_JSON = env("FCM_SERVICE_ACCOUNT_JSON", default="")
 FIREBASE_CREDENTIALS_PATH = env(

@@ -8,7 +8,7 @@ from urllib.request import Request as UrlRequest, urlopen
 from django.conf import settings
 from django.db import transaction
 
-from apps.users.models import DevicePushToken
+from apps.users.models import BrowserPushSubscription, DevicePushToken
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,11 @@ class PushDispatchResult:
 
 
 def push_is_enabled() -> bool:
-    return bool(getattr(settings, "FCM_ENABLED", False) or getattr(settings, "APNS_ENABLED", False))
+    return bool(
+        getattr(settings, "FCM_ENABLED", False)
+        or getattr(settings, "APNS_ENABLED", False)
+        or _web_push_is_enabled()
+    )
 
 
 def _fcm_is_enabled() -> bool:
@@ -36,6 +40,14 @@ def _fcm_is_enabled() -> bool:
 
 def _apns_is_enabled() -> bool:
     return bool(getattr(settings, "APNS_ENABLED", False))
+
+
+def _web_push_is_enabled() -> bool:
+    return bool(
+        getattr(settings, "WEB_PUSH_ENABLED", False)
+        and (getattr(settings, "WEB_PUSH_VAPID_PUBLIC_KEY", "") or "").strip()
+        and (getattr(settings, "WEB_PUSH_VAPID_PRIVATE_KEY", "") or "").strip()
+    )
 
 
 def _load_fcm_credentials():
@@ -333,6 +345,56 @@ def _send_device_push(push_token: DevicePushToken, title: str, body: str, data: 
     return False
 
 
+def _send_browser_push(subscription: BrowserPushSubscription, title: str, body: str, data: dict) -> bool:
+    from pywebpush import WebPushException, webpush
+
+    click_url = "/messenger/"
+    chat_uuid = str((data or {}).get("chat_uuid") or "").strip()
+    if chat_uuid:
+        click_url = f"/messenger/?chat={chat_uuid}"
+
+    payload = {
+        "title": title,
+        "body": body,
+        "tag": f"{(data or {}).get('type', 'message')}:{(data or {}).get('call_uuid') or (data or {}).get('message_uuid') or chat_uuid}",
+        "url": click_url,
+        "data": _stringify_data(data),
+    }
+    try:
+        webpush(
+            subscription_info={
+                "endpoint": subscription.endpoint,
+                "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth},
+            },
+            data=json.dumps(payload),
+            vapid_private_key=(getattr(settings, "WEB_PUSH_VAPID_PRIVATE_KEY", "") or "").strip(),
+            vapid_claims={"sub": (getattr(settings, "WEB_PUSH_VAPID_SUBJECT", "") or "").strip()},
+            ttl=60 if _is_call_push(data) else 300,
+        )
+        logger.info(
+            "Web push success | subscription_id=%s user_id=%s type=%s",
+            subscription.id,
+            subscription.user_id,
+            (data or {}).get("type", ""),
+        )
+        return True
+    except WebPushException as exc:
+        status_code = getattr(getattr(exc, "response", None), "status_code", None)
+        logger.warning(
+            "Web push failed | subscription_id=%s user_id=%s status=%s error=%s",
+            subscription.id,
+            subscription.user_id,
+            status_code,
+            str(exc)[:180],
+        )
+        if status_code in {404, 410}:
+            BrowserPushSubscription.objects.filter(id=subscription.id).update(is_active=False)
+        return False
+    except Exception as exc:
+        logger.exception("Unexpected Web push error for subscription %s: %s", subscription.id, exc)
+        return False
+
+
 def send_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> PushDispatchResult:
     user_ids = [user_id for user_id in dict.fromkeys(user_ids or []) if user_id]
     if not user_ids:
@@ -354,12 +416,17 @@ def send_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> PushDi
             "meta",
         )
     )
-    result = PushDispatchResult(attempted_count=len(push_tokens))
+    web_subscriptions = list(
+        BrowserPushSubscription.objects.filter(user_id__in=user_ids, is_active=True).only(
+            "id", "user_id", "endpoint", "p256dh", "auth", "is_active"
+        )
+    ) if _web_push_is_enabled() else []
+    result = PushDispatchResult(attempted_count=len(push_tokens) + len(web_subscriptions))
     logger.info(
         "Push tokens resolved | type=%s users=%s tokens=%s providers=%s",
         (data or {}).get("type", ""),
         len(user_ids),
-        len(push_tokens),
+        len(push_tokens) + len(web_subscriptions),
         [
             {
                 "user_id": push_token.user_id,
@@ -368,9 +435,18 @@ def send_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> PushDi
                 "token_id": push_token.id,
             }
             for push_token in push_tokens
+        ]
+        + [
+            {
+                "user_id": subscription.user_id,
+                "provider": "webpush",
+                "platform": "web",
+                "subscription_id": subscription.id,
+            }
+            for subscription in web_subscriptions
         ],
     )
-    if not push_tokens:
+    if not push_tokens and not web_subscriptions:
         logger.info("Push skipped: no active tokens | type=%s users=%s", (data or {}).get("type", ""), len(user_ids))
         return result
 
@@ -389,6 +465,10 @@ def send_push_to_user_ids(user_ids, title: str, body: str, data: dict) -> PushDi
             continue
 
         if _send_device_push(push_token, title, body, data):
+            result.sent_count += 1
+
+    for subscription in web_subscriptions:
+        if _send_browser_push(subscription, title, body, data):
             result.sent_count += 1
 
     logger.info(

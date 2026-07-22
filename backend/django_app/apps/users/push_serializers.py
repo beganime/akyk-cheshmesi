@@ -3,7 +3,7 @@ import logging
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import DevicePushToken
+from .models import BrowserPushSubscription, DevicePushToken
 
 logger = logging.getLogger(__name__)
 
@@ -184,3 +184,65 @@ class PushTokenDeleteSerializer(serializers.Serializer):
         now = timezone.now()
         updated = queryset.update(is_active=False, last_seen_at=now, updated_at=now)
         return updated
+
+
+class BrowserPushSubscriptionSerializer(serializers.Serializer):
+    endpoint = serializers.URLField(max_length=2000)
+    keys = serializers.DictField()
+    device_id = serializers.CharField(required=False, allow_blank=True, max_length=128)
+
+    def validate_keys(self, value):
+        p256dh = str(value.get("p256dh") or "").strip()
+        auth = str(value.get("auth") or "").strip()
+        if not p256dh or not auth:
+            raise serializers.ValidationError("Both p256dh and auth keys are required")
+        return {"p256dh": p256dh, "auth": auth}
+
+    def save(self, **kwargs):
+        request = self.context["request"]
+        endpoint = self.validated_data["endpoint"].strip()
+        device_id = (self.validated_data.get("device_id") or "").strip()
+        keys = self.validated_data["keys"]
+        now = timezone.now()
+
+        subscription, _ = BrowserPushSubscription.objects.update_or_create(
+            endpoint=endpoint,
+            defaults={
+                "user": request.user,
+                "p256dh": keys["p256dh"],
+                "auth": keys["auth"],
+                "device_id": device_id,
+                "user_agent": request.META.get("HTTP_USER_AGENT", "")[:500],
+                "is_active": True,
+                "last_seen_at": now,
+            },
+        )
+        if device_id:
+            BrowserPushSubscription.objects.filter(
+                user=request.user,
+                device_id=device_id,
+                is_active=True,
+            ).exclude(id=subscription.id).update(is_active=False, updated_at=now)
+        return subscription
+
+
+class BrowserPushSubscriptionDeleteSerializer(serializers.Serializer):
+    endpoint = serializers.URLField(required=False, max_length=2000)
+    device_id = serializers.CharField(required=False, allow_blank=True, max_length=128)
+
+    def validate(self, attrs):
+        if not attrs.get("endpoint") and not (attrs.get("device_id") or "").strip():
+            raise serializers.ValidationError("Provide endpoint or device_id")
+        return attrs
+
+    def deactivate(self):
+        queryset = BrowserPushSubscription.objects.filter(
+            user=self.context["request"].user,
+            is_active=True,
+        )
+        if self.validated_data.get("endpoint"):
+            queryset = queryset.filter(endpoint=self.validated_data["endpoint"])
+        else:
+            queryset = queryset.filter(device_id=self.validated_data["device_id"].strip())
+        now = timezone.now()
+        return queryset.update(is_active=False, last_seen_at=now, updated_at=now)

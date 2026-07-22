@@ -14,7 +14,31 @@
     return localStorage.getItem(accessKey);
   }
 
-  async function api(path, options = {}) {
+  let refreshPromise = null;
+
+  async function refreshAccessToken() {
+    const refresh = localStorage.getItem(refreshKey);
+    if (!refresh) return false;
+    if (!refreshPromise) {
+      refreshPromise = fetch(`${apiBase}/auth/refresh/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh }),
+      }).then(async (response) => {
+        if (!response.ok) return false;
+        const data = await response.json();
+        if (!data.access) return false;
+        localStorage.setItem(accessKey, data.access);
+        if (data.refresh) localStorage.setItem(refreshKey, data.refresh);
+        return true;
+      }).catch(() => false).finally(() => {
+        refreshPromise = null;
+      });
+    }
+    return refreshPromise;
+  }
+
+  async function api(path, options = {}, canRetry = true) {
     const headers = { ...(options.headers || {}) };
     const token = getAccess();
 
@@ -22,6 +46,10 @@
     if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
 
     const response = await fetch(`${apiBase}${path}`, { ...options, headers });
+
+    if (response.status === 401 && canRetry && await refreshAccessToken()) {
+      return api(path, options, false);
+    }
 
     if (response.status === 401) {
       localStorage.removeItem(accessKey);
@@ -39,14 +67,23 @@
     }
 
     if (!response.ok) {
-      const message = data && (data.detail || data.message || JSON.stringify(data));
+      const message = data && (data.detail || data.message || firstApiError(data) || JSON.stringify(data));
       throw new Error(message || "Request failed");
     }
 
     return data;
   }
 
-  function initLogin() {
+  function firstApiError(data) {
+    if (!data || typeof data !== "object") return "";
+    for (const value of Object.values(data)) {
+      if (Array.isArray(value) && value.length) return String(value[0]);
+      if (typeof value === "string") return value;
+    }
+    return "";
+  }
+
+  function initAuth() {
     const form = document.getElementById("loginForm");
     if (!form) return;
 
@@ -54,6 +91,46 @@
 
     const message = document.getElementById("loginMessage");
     const submitButton = form.querySelector('button[type="submit"]');
+    const loginTab = document.getElementById("loginTab");
+    const registerTab = document.getElementById("registerTab");
+    const registerEmailForm = document.getElementById("registerEmailForm");
+    const registerCodeForm = document.getElementById("registerCodeForm");
+    const registerProfileForm = document.getElementById("registerProfileForm");
+    const authTitle = document.getElementById("authTitle");
+    const authDescription = document.getElementById("authDescription");
+    const registration = { email: "", verificationToken: "" };
+
+    function setAuthMode(mode) {
+      const isLogin = mode === "login";
+      loginTab?.classList.toggle("active", isLogin);
+      registerTab?.classList.toggle("active", !isLogin);
+      loginTab?.setAttribute("aria-selected", String(isLogin));
+      registerTab?.setAttribute("aria-selected", String(!isLogin));
+      form.hidden = !isLogin;
+      form.classList.toggle("active", isLogin);
+      registerEmailForm.hidden = isLogin;
+      registerEmailForm.classList.toggle("active", !isLogin);
+      registerCodeForm.hidden = true;
+      registerCodeForm.classList.remove("active");
+      registerProfileForm.hidden = true;
+      registerProfileForm.classList.remove("active");
+      authTitle.textContent = isLogin ? "Добро пожаловать" : "Создать аккаунт";
+      authDescription.textContent = isLogin
+        ? "Войдите с email или username от мобильного приложения."
+        : "Регистрация займёт три коротких шага.";
+    }
+
+    function showRegisterStep(step) {
+      [registerEmailForm, registerCodeForm, registerProfileForm].forEach((item, index) => {
+        const active = index + 1 === step;
+        item.hidden = !active;
+        item.classList.toggle("active", active);
+      });
+    }
+
+    loginTab?.addEventListener("click", () => setAuthMode("login"));
+    registerTab?.addEventListener("click", () => setAuthMode("register"));
+    document.getElementById("registerBackToEmail")?.addEventListener("click", () => showRegisterStep(1));
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -80,6 +157,78 @@
         message.textContent = error.message || "Не удалось войти";
       } finally {
         if (submitButton) submitButton.disabled = false;
+      }
+    });
+
+    registerEmailForm?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const status = document.getElementById("registerEmailMessage");
+      const button = registerEmailForm.querySelector('button[type="submit"]');
+      registration.email = document.getElementById("registerEmail").value.trim().toLowerCase();
+      status.textContent = "Отправляем код…";
+      button.disabled = true;
+      try {
+        await api("/auth/register/", { method: "POST", body: JSON.stringify({ email: registration.email }) });
+        document.getElementById("registerCodeHint").textContent = `Код отправлен на ${registration.email}`;
+        status.textContent = "";
+        showRegisterStep(2);
+        document.getElementById("registerCode").focus();
+      } catch (error) {
+        status.textContent = error.message || "Не удалось отправить код";
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    registerCodeForm?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const status = document.getElementById("registerCodeMessage");
+      const button = registerCodeForm.querySelector('button[type="submit"]');
+      status.textContent = "Проверяем код…";
+      button.disabled = true;
+      try {
+        const data = await api("/auth/verify-email/", {
+          method: "POST",
+          body: JSON.stringify({ email: registration.email, code: document.getElementById("registerCode").value.trim() }),
+        });
+        registration.verificationToken = data.verification_token;
+        status.textContent = "";
+        showRegisterStep(3);
+        document.getElementById("registerUsername").focus();
+      } catch (error) {
+        status.textContent = error.message || "Неверный или просроченный код";
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    registerProfileForm?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const status = document.getElementById("registerProfileMessage");
+      const button = registerProfileForm.querySelector('button[type="submit"]');
+      const password = document.getElementById("registerPassword").value;
+      const passwordConfirm = document.getElementById("registerPasswordConfirm").value;
+      status.textContent = "Создаём аккаунт…";
+      button.disabled = true;
+      try {
+        const data = await api("/auth/set-password/", {
+          method: "POST",
+          body: JSON.stringify({
+            verification_token: registration.verificationToken,
+            username: document.getElementById("registerUsername").value.trim(),
+            first_name: document.getElementById("registerFirstName").value.trim(),
+            last_name: document.getElementById("registerLastName").value.trim(),
+            password,
+            password_confirm: passwordConfirm,
+          }),
+        });
+        localStorage.setItem(accessKey, data.tokens.access);
+        localStorage.setItem(refreshKey, data.tokens.refresh);
+        window.location.href = "/messenger/";
+      } catch (error) {
+        status.textContent = error.message || "Не удалось завершить регистрацию";
+      } finally {
+        button.disabled = false;
       }
     });
   }
@@ -116,6 +265,10 @@
       iceServers: null,
       socketReconnectTimer: null,
       socketReconnectAttempts: 0,
+      cache: null,
+      webPushSubscribed: false,
+      chatRefreshTimer: null,
+      lastChatRefreshAt: 0,
     };
 
     const $ = (id) => document.getElementById(id);
@@ -188,6 +341,18 @@
       remoteVideo: $("remoteVideo"),
       toast: $("toast"),
       backToChats: $("backToChats"),
+      notificationButton: $("notificationButton"),
+      notificationDot: $("notificationDot"),
+      profileButton: $("profileButton"),
+      profileModal: $("profileModal"),
+      profileForm: $("profileForm"),
+      profileModalClose: $("profileModalClose"),
+      profileCancelButton: $("profileCancelButton"),
+      profileAvatar: $("profileAvatar"),
+      profileAvatarPreview: $("profileAvatarPreview"),
+      profileFirstName: $("profileFirstName"),
+      profileLastName: $("profileLastName"),
+      profileBio: $("profileBio"),
     };
 
     let toastTimeout = null;
@@ -215,6 +380,15 @@
       });
 
       elements.themeToggle?.addEventListener("click", toggleTheme);
+      elements.notificationButton?.addEventListener("click", enableBrowserNotifications);
+      elements.profileButton?.addEventListener("click", openProfileModal);
+      elements.profileModalClose?.addEventListener("click", closeProfileModal);
+      elements.profileCancelButton?.addEventListener("click", closeProfileModal);
+      elements.profileForm?.addEventListener("submit", saveProfile);
+      elements.profileAvatar?.addEventListener("change", previewProfileAvatar);
+      elements.profileModal?.addEventListener("click", (event) => {
+        if (event.target === elements.profileModal) closeProfileModal();
+      });
       document.querySelectorAll(".drawer-item[data-action]").forEach((item) => {
         item.addEventListener("click", (event) => {
           const action = item.dataset.action;
@@ -284,16 +458,61 @@
 
     async function bootstrap() {
       state.me = await api("/users/me/");
+      state.cache = window.AkylStore?.scope(state.me.uuid) || null;
       renderMe();
+      await hydrateCache();
       void loadIceServers();
       await Promise.allSettled([loadStories(), loadContacts(), loadChats()]);
       connectSocket();
+      void refreshBrowserNotificationState();
+      const requestedChat = new URLSearchParams(window.location.search).get("chat");
+      if (requestedChat && state.chats.some((chat) => String(chat.uuid) === requestedChat)) {
+        await openChat(requestedChat);
+      }
     }
 
-    function logout() {
-      localStorage.removeItem(accessKey);
-      localStorage.removeItem(refreshKey);
-      window.location.href = "/login/";
+    async function hydrateCache() {
+      if (!state.cache) return;
+      const [chats, contacts, stories] = await Promise.all([
+        state.cache.get("chats"),
+        state.cache.get("contacts"),
+        state.cache.get("stories"),
+      ]);
+      if (Array.isArray(chats)) {
+        state.chats = chats;
+        renderList();
+      }
+      if (Array.isArray(contacts)) state.contacts = contacts;
+      if (Array.isArray(stories)) {
+        state.stories = stories;
+        renderStories();
+      }
+    }
+
+    async function logout() {
+      try {
+        if ("serviceWorker" in navigator && "PushManager" in window) {
+          const registration = await navigator.serviceWorker.ready;
+          const subscription = await registration.pushManager.getSubscription();
+          if (subscription) {
+            await api("/web-push/subscriptions/", {
+              method: "DELETE",
+              body: JSON.stringify({ endpoint: subscription.endpoint }),
+            });
+            await subscription.unsubscribe();
+          }
+        }
+        await api("/auth/logout/", {
+          method: "POST",
+          body: JSON.stringify({ refresh: localStorage.getItem(refreshKey) || "" }),
+        });
+      } catch (error) {
+        console.warn("logout cleanup error", error);
+      } finally {
+        localStorage.removeItem(accessKey);
+        localStorage.removeItem(refreshKey);
+        window.location.href = "/login/";
+      }
     }
 
     function initTheme() {
@@ -332,10 +551,118 @@
       elements.drawerUsername.textContent = state.me?.username ? `@${state.me.username}` : "@user";
     }
 
+    function openProfileModal() {
+      closeDrawer();
+      elements.profileFirstName.value = state.me?.first_name || "";
+      elements.profileLastName.value = state.me?.last_name || "";
+      elements.profileBio.value = state.me?.bio || "";
+      elements.profileAvatar.value = "";
+      elements.profileAvatarPreview.innerHTML = avatarContent(state.me, displayUserName(state.me));
+      elements.profileModal.classList.add("active");
+    }
+
+    function closeProfileModal() {
+      elements.profileModal?.classList.remove("active");
+      elements.profileAvatar.value = "";
+    }
+
+    function previewProfileAvatar(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      elements.profileAvatarPreview.innerHTML = `<img src="${escapeAttr(URL.createObjectURL(file))}" alt="">`;
+    }
+
+    async function saveProfile(event) {
+      event.preventDefault();
+      const submitButton = elements.profileForm.querySelector('button[type="submit"]');
+      const formData = new FormData();
+      formData.append("first_name", elements.profileFirstName.value.trim());
+      formData.append("last_name", elements.profileLastName.value.trim());
+      formData.append("bio", elements.profileBio.value.trim());
+      if (elements.profileAvatar.files?.[0]) formData.append("avatar", elements.profileAvatar.files[0]);
+      submitButton.disabled = true;
+      try {
+        state.me = await api("/users/me/", { method: "PATCH", body: formData });
+        renderMe();
+        closeProfileModal();
+        showToast("Профиль обновлён");
+      } catch (error) {
+        showToast(error.message || "Не удалось обновить профиль");
+      } finally {
+        submitButton.disabled = false;
+      }
+    }
+
+    function browserDeviceId() {
+      const key = "akyl_web_device_id";
+      let value = localStorage.getItem(key);
+      if (!value) {
+        value = crypto.randomUUID();
+        localStorage.setItem(key, value);
+      }
+      return value;
+    }
+
+    function applicationServerKey(value) {
+      const padding = "=".repeat((4 - value.length % 4) % 4);
+      const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+      const raw = atob(base64);
+      return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
+    }
+
+    async function refreshBrowserNotificationState() {
+      if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+        elements.notificationButton.hidden = true;
+        return;
+      }
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        state.webPushSubscribed = Boolean(await registration.pushManager.getSubscription());
+      } catch (error) {
+        state.webPushSubscribed = false;
+      }
+      elements.notificationButton.classList.toggle("active", state.webPushSubscribed);
+      elements.notificationDot.classList.toggle("active", state.webPushSubscribed);
+      elements.notificationButton.title = state.webPushSubscribed ? "Уведомления включены" : "Включить уведомления";
+    }
+
+    async function enableBrowserNotifications() {
+      if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+        showToast("Этот браузер не поддерживает push-уведомления");
+        return;
+      }
+      try {
+        const config = await api("/web-push/config/");
+        if (!config?.enabled || !config.public_key) throw new Error("Web Push пока не настроен на сервере");
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") throw new Error("Разрешите уведомления в настройках браузера");
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
+        if (!subscription) {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey(config.public_key),
+          });
+        }
+        const payload = subscription.toJSON();
+        await api("/web-push/subscriptions/", {
+          method: "POST",
+          body: JSON.stringify({ ...payload, device_id: browserDeviceId() }),
+        });
+        state.webPushSubscribed = true;
+        await refreshBrowserNotificationState();
+        showToast("Уведомления включены");
+      } catch (error) {
+        showToast(error.message || "Не удалось включить уведомления");
+      }
+    }
+
     async function loadChats() {
-      elements.list.innerHTML = `<div class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i><div>Загружаем чаты...</div></div>`;
+      if (!state.chats.length) elements.list.innerHTML = `<div class="loading-state"><div class="loading-pulse"></div><div>Загружаем чаты...</div></div>`;
       const data = await api("/chats/");
       state.chats = normalizePage(data);
+      state.lastChatRefreshAt = Date.now();
+      void state.cache?.set("chats", state.chats);
       renderList();
     }
 
@@ -343,6 +670,7 @@
       try {
         const data = await api("/users/contacts/");
         state.contacts = normalizePage(data).map((item) => item.user || item).filter(Boolean);
+        void state.cache?.set("contacts", state.contacts);
       } catch (error) {
         console.warn("contacts load error", error);
         state.contacts = [];
@@ -353,6 +681,7 @@
       try {
         const data = await api("/stories/");
         state.stories = normalizePage(data);
+        void state.cache?.set("stories", state.stories);
       } catch (error) {
         console.warn("stories load error", error);
         state.stories = [];
@@ -567,17 +896,51 @@
       elements.rightPanel.classList.add("mobile-open");
       renderChats();
 
+      if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+        state.socket.send(JSON.stringify({ type: "subscribe_chat", chat_uuid: chat.uuid }));
+      }
+
+      const cachedRows = await state.cache?.get(`messages:${chat.uuid}`);
+      if (Array.isArray(cachedRows) && cachedRows.length) renderMessageList(cachedRows);
+      else elements.messages.innerHTML = `<div class="messages-loading"><span></span><span></span><span></span></div>`;
+
       try {
         const data = await api(`/chats/${chat.uuid}/messages/`);
-        elements.messages.innerHTML = "";
-        const rows = normalizePage(data).slice().reverse();
-        rows.forEach(appendMessage);
-        if (state.socket && state.socket.readyState === WebSocket.OPEN) {
-          state.socket.send(JSON.stringify({ type: "subscribe_chat", chat_uuid: chat.uuid }));
-        }
+        const rows = mergeMessages(cachedRows || [], normalizePage(data).slice().reverse());
+        renderMessageList(rows);
+        void state.cache?.set(`messages:${chat.uuid}`, rows.slice(-200));
+        chat.unread_count = 0;
+        void state.cache?.set("chats", state.chats);
+        void api(`/chats/${chat.uuid}/read/`, { method: "POST", body: JSON.stringify({}) }).catch(() => {});
       } catch (error) {
-        showToast(error.message || "Не удалось загрузить сообщения");
+        if (!cachedRows?.length) {
+          elements.messages.innerHTML = emptyListHtml("", "Нет соединения", "Показывать пока нечего");
+          showToast(error.message || "Не удалось загрузить сообщения");
+        }
       }
+    }
+
+    function mergeMessages(...lists) {
+      const byId = new Map();
+      lists.flat().filter(Boolean).forEach((message) => {
+        const key = message.client_uuid || message.uuid;
+        if (key) byId.set(String(key), { ...(byId.get(String(key)) || {}), ...message });
+      });
+      return Array.from(byId.values()).sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+    }
+
+    function renderMessageList(rows) {
+      state.renderedMessageUuids.clear();
+      elements.messages.innerHTML = "";
+      rows.forEach(appendMessage);
+      elements.messages.scrollTop = elements.messages.scrollHeight;
+    }
+
+    async function cacheMessage(message) {
+      const chatUuid = String(message.chat_uuid || message.chat || state.activeChat?.uuid || "");
+      if (!chatUuid || !state.cache) return;
+      const rows = await state.cache.get(`messages:${chatUuid}`) || [];
+      await state.cache.set(`messages:${chatUuid}`, mergeMessages(rows, [message]).slice(-200));
     }
 
     function appendMessage(message) {
@@ -589,12 +952,14 @@
 
       const own = message.is_own_message || (message.sender && state.me && message.sender.uuid === state.me.uuid);
       const node = document.createElement("article");
-      node.className = `message ${own ? "own" : ""}`;
+      node.className = `message ${own ? "own" : ""}${message.pending ? " pending" : ""}`;
+      node.dataset.messageUuid = message.uuid || message.client_uuid || "";
       const sender = message.sender ? displayUserName(message.sender) : "";
       const attachments = (message.attachments || []).map(renderAttachment).join("");
       node.innerHTML = `${sender && !own ? `<small>${escapeHtml(sender)}</small>` : ""}<p>${escapeHtml(message.text || labelForType(message.message_type)).replace(/\n/g, "<br>")}</p>${attachments}<time>${formatTime(message.created_at)}</time>`;
       elements.messages.appendChild(node);
       elements.messages.scrollTop = elements.messages.scrollHeight;
+      if (!message.pending) void cacheMessage(message);
     }
 
     function renderAttachment(media) {
@@ -619,8 +984,21 @@
       const text = elements.messageInput.value.trim();
       if (!text) return;
 
+      const clientUuid = crypto.randomUUID();
+      const optimistic = {
+        uuid: clientUuid,
+        client_uuid: clientUuid,
+        chat_uuid: state.activeChat.uuid,
+        sender: state.me,
+        is_own_message: true,
+        message_type: "text",
+        text,
+        created_at: new Date().toISOString(),
+        pending: true,
+      };
       elements.messageInput.value = "";
       autoResizeMessageInput();
+      appendMessage(optimistic);
 
       try {
         const data = await api(`/chats/${state.activeChat.uuid}/messages/`, {
@@ -628,14 +1006,21 @@
           body: JSON.stringify({
             message_type: "text",
             text,
-            client_uuid: crypto.randomUUID(),
+            client_uuid: clientUuid,
           }),
         });
+        const pendingNode = elements.messages.querySelector(`[data-message-uuid="${CSS.escape(clientUuid)}"]`);
+        pendingNode?.remove();
+        state.renderedMessageUuids.delete(clientUuid);
         appendMessage(data);
         state.activeChat.last_message = { preview: text, text };
         state.activeChat.last_message_at = new Date().toISOString();
+        void state.cache?.set("chats", state.chats);
         renderChats();
       } catch (error) {
+        const pendingNode = elements.messages.querySelector(`[data-message-uuid="${CSS.escape(clientUuid)}"]`);
+        pendingNode?.classList.add("failed");
+        pendingNode?.classList.remove("pending");
         elements.messageInput.value = text;
         showToast(error.message || "Не удалось отправить сообщение");
       }
@@ -659,6 +1044,7 @@
         appendMessage(message);
         state.activeChat.last_message = { preview: labelForType(type) };
         state.activeChat.last_message_at = new Date().toISOString();
+        void state.cache?.set("chats", state.chats);
         renderChats();
       } catch (error) {
         showToast(error.message || "Не удалось отправить файл");
@@ -1190,6 +1576,48 @@
       state.socketReconnectTimer = setTimeout(connectSocket, delay);
     }
 
+    function scheduleChatsRefresh() {
+      if (state.chatRefreshTimer) return;
+      const wait = Math.max(500, 5000 - (Date.now() - state.lastChatRefreshAt));
+      state.chatRefreshTimer = setTimeout(() => {
+        state.chatRefreshTimer = null;
+        void loadChats().catch((error) => console.warn("chat refresh error", error));
+      }, wait);
+    }
+
+    function updateChatFromMessage(message) {
+      const chatUuid = String(message.chat_uuid || message.chat || "");
+      const chat = state.chats.find((item) => String(item.uuid) === chatUuid);
+      if (!chat) {
+        scheduleChatsRefresh();
+        return;
+      }
+      chat.last_message = message;
+      chat.last_message_at = message.created_at || new Date().toISOString();
+      const own = message.is_own_message || String(message.sender?.uuid || message.sender_uuid || "") === String(state.me?.uuid || "");
+      if (!own && String(state.activeChat?.uuid || "") !== chatUuid) {
+        chat.unread_count = Number(chat.unread_count || 0) + 1;
+      }
+      void state.cache?.set("chats", state.chats);
+      renderChats();
+    }
+
+    async function notifyRealtime(title, body, data) {
+      if (!("Notification" in window) || document.visibilityState === "visible" || Notification.permission !== "granted" || state.webPushSubscribed) return;
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        await registration.showNotification(title, {
+          body,
+          icon: "/assets/akyl_logo.png",
+          tag: `${data.type}:${data.call_uuid || data.message_uuid || data.chat_uuid || "new"}`,
+          requireInteraction: data.type === "call",
+          data: { ...data, url: data.chat_uuid ? `/messenger/?chat=${data.chat_uuid}` : "/messenger/" },
+        });
+      } catch (error) {
+        console.warn("notification error", error);
+      }
+    }
+
     function connectSocket() {
       clearTimeout(state.socketReconnectTimer);
       if (!getAccess() || !navigator.onLine) {
@@ -1222,7 +1650,17 @@
           const message = payload?.payload?.message;
           if ((payload.type === "message:new" || payload.type === "message_persisted" || payload.type === "chat_message") && message) {
             appendMessage(message);
-            void loadChats();
+            void cacheMessage(message);
+            updateChatFromMessage(message);
+            const own = String(message.sender?.uuid || payload.payload?.sender_uuid || "") === String(state.me?.uuid || "");
+            if (!own) {
+              const senderName = displayUserName(message.sender);
+              void notifyRealtime(senderName, message.text || labelForType(message.message_type), {
+                type: "message",
+                chat_uuid: message.chat_uuid || payload.payload?.chat_uuid,
+                message_uuid: message.uuid,
+              });
+            }
           }
           void handleCallSocketEvent(payload);
         } catch (error) {
@@ -1267,6 +1705,11 @@
       if (inviteTypes.has(type)) {
         if (String(payload.initiated_by_uuid || payload.caller_uuid) === String(state.me?.uuid)) return;
         showIncomingCall(payload);
+        void notifyRealtime(
+          payload.caller_name || payload.initiated_by_username || "Входящий звонок",
+          payload.call_type === "video" ? "Видеозвонок" : "Аудиозвонок",
+          { type: "call", ...payload }
+        );
         return;
       }
 
@@ -1446,6 +1889,6 @@
     return escapeHtml(value).replace(/`/g, "&#96;");
   }
 
-  initLogin();
+  initAuth();
   initMessenger();
 })();

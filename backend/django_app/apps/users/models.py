@@ -137,6 +137,33 @@ class DevicePushToken(UUIDTimeStampedModel):
         return f"{self.user_id} | {self.platform} | {self.provider}"
 
 
+class BrowserPushSubscription(UUIDTimeStampedModel):
+    user = models.ForeignKey(
+        "users.User",
+        on_delete=models.CASCADE,
+        related_name="browser_push_subscriptions",
+    )
+    endpoint = models.URLField(max_length=2000, unique=True)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    device_id = models.CharField(max_length=128, blank=True, db_index=True)
+    user_agent = models.CharField(max_length=500, blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    last_seen_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    class Meta:
+        db_table = "user_browser_push_subscriptions"
+        ordering = ["-last_seen_at", "-created_at"]
+        indexes = [
+            models.Index(fields=["user", "is_active"]),
+            models.Index(fields=["device_id"]),
+            models.Index(fields=["last_seen_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} | web | {self.device_id or self.uuid}"
+
+
 class UserContact(UUIDTimeStampedModel):
     owner = models.ForeignKey(
         "users.User",

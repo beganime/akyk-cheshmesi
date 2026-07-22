@@ -4,7 +4,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from unfold.admin import ModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 
-from .models import DevicePushToken, OneTimeCode, User, UserContact
+from .models import BrowserPushSubscription, DevicePushToken, OneTimeCode, User, UserContact
 
 
 @admin.register(User)
@@ -133,4 +133,13 @@ class DevicePushTokenAdmin(ModelAdmin):
     list_filter = ("provider", "platform", "is_active", "created_at", "last_seen_at")
     search_fields = ("token", "device_id", "device_name", "user__email", "user__username", "user__uuid")
     readonly_fields = ("uuid", "created_at", "updated_at", "last_seen_at")
+    autocomplete_fields = ("user",)
+
+
+@admin.register(BrowserPushSubscription)
+class BrowserPushSubscriptionAdmin(ModelAdmin):
+    list_display = ("id", "user", "device_id", "is_active", "last_seen_at", "created_at")
+    list_filter = ("is_active", "created_at", "last_seen_at")
+    search_fields = ("device_id", "user__email", "user__username", "user__uuid")
+    readonly_fields = ("uuid", "endpoint", "p256dh", "auth", "user_agent", "created_at", "updated_at", "last_seen_at")
     autocomplete_fields = ("user",)

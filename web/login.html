@@ -12,9 +12,13 @@
     <section class="auth-panel">
       <a class="brand" href="/"><span class="brand-mark">A</span><span>Akyl Cheshmesi</span></a>
       <p class="auth-kicker">Web messenger</p>
-      <h1>С возвращением</h1>
-      <p>Используйте email или username и пароль от аккаунта мобильного приложения. После входа откроется веб-версия чата.</p>
-      <form id="loginForm" class="auth-form">
+      <h1 id="authTitle">Добро пожаловать</h1>
+      <p id="authDescription">Продолжите разговор в браузере или создайте новый аккаунт.</p>
+      <div class="auth-switch" role="tablist" aria-label="Авторизация">
+        <button class="auth-switch-button active" id="loginTab" type="button" role="tab" aria-selected="true">Вход</button>
+        <button class="auth-switch-button" id="registerTab" type="button" role="tab" aria-selected="false">Регистрация</button>
+      </div>
+      <form id="loginForm" class="auth-form auth-step active">
         <label>
           <span>Email или username</span>
           <input id="email" type="text" autocomplete="username" required placeholder="you@example.com или username">
@@ -25,6 +29,32 @@
         </label>
         <button type="submit" class="primary-action full">Войти в мессенджер</button>
         <div id="loginMessage" class="form-message" role="status"></div>
+      </form>
+      <form id="registerEmailForm" class="auth-form auth-step" hidden>
+        <div class="auth-progress" aria-label="Шаг 1 из 3"><span class="active"></span><span></span><span></span></div>
+        <label><span>Email</span><input id="registerEmail" type="email" autocomplete="email" required placeholder="you@example.com"></label>
+        <button type="submit" class="primary-action full">Получить код</button>
+        <div id="registerEmailMessage" class="form-message" role="status"></div>
+      </form>
+      <form id="registerCodeForm" class="auth-form auth-step" hidden>
+        <div class="auth-progress" aria-label="Шаг 2 из 3"><span class="active"></span><span class="active"></span><span></span></div>
+        <p class="auth-step-note" id="registerCodeHint">Код отправлен на email</p>
+        <label><span>Проверочный код</span><input id="registerCode" type="text" inputmode="numeric" autocomplete="one-time-code" minlength="6" maxlength="6" required placeholder="000000"></label>
+        <button type="submit" class="primary-action full">Подтвердить email</button>
+        <button type="button" class="auth-text-button" id="registerBackToEmail">Изменить email</button>
+        <div id="registerCodeMessage" class="form-message" role="status"></div>
+      </form>
+      <form id="registerProfileForm" class="auth-form auth-step" hidden>
+        <div class="auth-progress" aria-label="Шаг 3 из 3"><span class="active"></span><span class="active"></span><span class="active"></span></div>
+        <div class="auth-fields-row">
+          <label><span>Имя</span><input id="registerFirstName" type="text" autocomplete="given-name" maxlength="150"></label>
+          <label><span>Фамилия</span><input id="registerLastName" type="text" autocomplete="family-name" maxlength="150"></label>
+        </div>
+        <label><span>Username</span><input id="registerUsername" type="text" autocomplete="username" minlength="4" maxlength="32" required placeholder="akyl_user"></label>
+        <label><span>Пароль</span><input id="registerPassword" type="password" autocomplete="new-password" minlength="8" required placeholder="Минимум 8 символов"></label>
+        <label><span>Повторите пароль</span><input id="registerPasswordConfirm" type="password" autocomplete="new-password" minlength="8" required placeholder="Повторите пароль"></label>
+        <button type="submit" class="primary-action full">Создать аккаунт</button>
+        <div id="registerProfileMessage" class="form-message" role="status"></div>
       </form>
       <div class="auth-links">
         <a href="/">Главная</a>
@@ -45,6 +75,7 @@
       <div class="auth-visual-copy"><span>WEB CABINET</span><strong>Разговор продолжается здесь.</strong><p>Чаты, медиа, истории и звонки в одном защищённом кабинете.</p></div>
     </section>
   </main>
+  <script src="/storage.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
