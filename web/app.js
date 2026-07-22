@@ -343,6 +343,7 @@
       backToChats: $("backToChats"),
       notificationButton: $("notificationButton"),
       notificationDot: $("notificationDot"),
+      newChatButton: $("newChatButton"),
       profileButton: $("profileButton"),
       profileModal: $("profileModal"),
       profileForm: $("profileForm"),
@@ -381,6 +382,7 @@
 
       elements.themeToggle?.addEventListener("click", toggleTheme);
       elements.notificationButton?.addEventListener("click", enableBrowserNotifications);
+      elements.newChatButton?.addEventListener("click", openUserSearch);
       elements.profileButton?.addEventListener("click", openProfileModal);
       elements.profileModalClose?.addEventListener("click", closeProfileModal);
       elements.profileCancelButton?.addEventListener("click", closeProfileModal);
@@ -403,6 +405,7 @@
         tab.addEventListener("click", () => {
           state.activeTab = tab.dataset.tab || "chats";
           elements.tabs.forEach((item) => item.classList.toggle("active", item === tab));
+          updateSearchPlaceholder();
           renderList();
         });
       });
@@ -413,6 +416,11 @@
       });
 
       elements.messageInput?.addEventListener("input", autoResizeMessageInput);
+      elements.messageInput?.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+        event.preventDefault();
+        elements.messageForm?.requestSubmit();
+      });
       elements.messageForm?.addEventListener("submit", sendTextMessage);
       elements.attachButton?.addEventListener("click", () => elements.fileInput.click());
       elements.fileInput?.addEventListener("change", sendPickedFile);
@@ -726,6 +734,23 @@
       }
     }
 
+    function updateSearchPlaceholder() {
+      if (!elements.search) return;
+      elements.search.placeholder = state.activeTab === "contacts"
+        ? "Найти пользователя"
+        : state.activeTab === "chats" ? "Поиск по чатам" : "Поиск";
+    }
+
+    function openUserSearch() {
+      state.activeTab = "contacts";
+      state.searchUsers = [];
+      elements.tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === "contacts"));
+      elements.search.value = "";
+      updateSearchPlaceholder();
+      renderList();
+      elements.search.focus();
+    }
+
     function renderFeed() {
       if (!elements.feedList) return;
       const stories = [...state.stories].sort(
@@ -973,7 +998,7 @@
         return `<audio controls src="${escapeAttr(url)}"></audio>`;
       }
       if (media.media_kind === "video" || String(media.content_type || "").startsWith("video/")) {
-        return `<video controls src="${escapeAttr(url)}" poster="${escapeAttr(media.thumbnail_url || "")}"></video>`;
+        return `<span class="video-note-shell"><video controls playsinline src="${escapeAttr(url)}" poster="${escapeAttr(media.thumbnail_url || "")}"></video></span>`;
       }
       return `<a class="file-chip" href="${escapeAttr(url)}" target="_blank" rel="noopener">${name}</a>`;
     }
