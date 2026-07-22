@@ -1,4 +1,4 @@
-const CACHE_NAME = "akyl-web-v6";
+const CACHE_NAME = "akyl-web-v7";
 const STATIC_PATHS = [
   "/",
   "/login/",
@@ -6,13 +6,13 @@ const STATIC_PATHS = [
   "/privacy/",
   "/terms/",
   "/support/",
-  "/styles.css",
+  "/styles.css?v=8",
   "/site.css",
   "/landing-extra.css",
-  "/doppler.css",
+  "/doppler.css?v=8",
   "/site.js",
-  "/app.js",
-  "/storage.js",
+  "/app.js?v=8",
+  "/storage.js?v=8",
   "/sphere.js",
   "/vendor/three.min.js",
 ];
@@ -79,6 +79,19 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (/^\/(api|admin|ws|media|_protected_media)\//.test(url.pathname)) return;
+
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request).then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      }).catch(() => caches.match(request).then((cached) => cached || caches.match(url.pathname)))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(request).then((cached) => {
