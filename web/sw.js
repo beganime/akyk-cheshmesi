@@ -1,4 +1,4 @@
-const CACHE_NAME = "akyl-web-v5";
+const CACHE_NAME = "akyl-web-v6";
 const STATIC_PATHS = [
   "/",
   "/login/",

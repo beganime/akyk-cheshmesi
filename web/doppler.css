@@ -16,7 +16,7 @@
 
 * { letter-spacing: 0 !important; }
 
-* { letter-spacing: 0 !important; }
+[hidden] { display: none !important; }
 
 body,
 .site-body.brand-site,
