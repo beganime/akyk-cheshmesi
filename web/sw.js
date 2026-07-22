@@ -1,4 +1,4 @@
-const CACHE_NAME = "akyl-web-v7";
+const CACHE_NAME = "akyl-web-v8";
 const STATIC_PATHS = [
   "/",
   "/login/",
@@ -6,13 +6,13 @@ const STATIC_PATHS = [
   "/privacy/",
   "/terms/",
   "/support/",
-  "/styles.css?v=8",
+  "/styles.css?v=9",
   "/site.css",
   "/landing-extra.css",
-  "/doppler.css?v=8",
+  "/doppler.css?v=9",
   "/site.js",
-  "/app.js?v=8",
-  "/storage.js?v=8",
+  "/app.js?v=9",
+  "/storage.js?v=9",
   "/sphere.js",
   "/vendor/three.min.js",
 ];

@@ -224,7 +224,7 @@ select:focus-visible {
   background: var(--doppler-panel);
   box-shadow: var(--doppler-shadow);
 }
-.auth-panel { padding: 52px; background: var(--doppler-panel); }
+.auth-panel { padding: 36px 52px; background: var(--doppler-panel); }
 .auth-panel h1 { color: var(--doppler-text); font-size: 38px; line-height: 1.08; margin: 10px 0 14px; }
 .auth-panel p,
 .auth-links { color: var(--doppler-muted); }
@@ -232,10 +232,12 @@ select:focus-visible {
 .auth-form label,
 .auth-links a { color: var(--doppler-text); }
 .auth-form label span { color: var(--doppler-muted); }
-.auth-kicker { margin-top: 62px; color: var(--doppler-green) !important; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.auth-kicker { margin-top: 28px; color: var(--doppler-green) !important; font-size: 12px; font-weight: 800; text-transform: uppercase; }
+.auth-form { margin-top: 18px; }
+.auth-links { margin-top: 16px; }
 .auth-form input { border-radius: 8px; border-color: var(--doppler-line); background: var(--doppler-bg); color: var(--doppler-text); }
 .auth-form input:focus { border-color: var(--doppler-violet); }
-.auth-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 24px; padding: 4px; border: 1px solid var(--doppler-line); border-radius: 8px; background: var(--doppler-bg); }
+.auth-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 18px; padding: 4px; border: 1px solid var(--doppler-line); border-radius: 8px; background: var(--doppler-bg); }
 .auth-switch-button { min-height: 40px; border: 0; border-radius: 6px; background: transparent; color: var(--doppler-muted); font: inherit; font-weight: 750; cursor: pointer; }
 .auth-switch-button.active { background: var(--doppler-card); color: var(--doppler-text); box-shadow: 0 2px 10px rgba(8, 5, 12, 0.22); }
 .auth-step { animation: authStepIn .24s ease both; }
