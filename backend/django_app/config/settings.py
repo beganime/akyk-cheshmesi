@@ -161,8 +161,8 @@ CALL_TURN_TTL_SECONDS = env.int("CALL_TURN_TTL_SECONDS", default=3600)
 MANAGER_SL_API_BASE_URL = env("MANAGER_SL_API_BASE_URL", default="").rstrip("/")
 MANAGER_SL_SERVICE_TOKEN = env("MANAGER_SL_SERVICE_TOKEN", default="")
 
-# Retention is intentionally disabled until the three-day warning/confirmation
-# workflow is connected to ManagerSL and Students Life push notifications.
+# The task only processes Students Life support chats. It warns in the chat,
+# waits for a reply during the grace period, then removes messages and files.
 CHAT_RETENTION_ENABLED = env.bool("CHAT_RETENTION_ENABLED", default=False)
 CHAT_RETENTION_DAYS = env.int("CHAT_RETENTION_DAYS", default=90)
 CHAT_RETENTION_GRACE_DAYS = env.int("CHAT_RETENTION_GRACE_DAYS", default=3)
@@ -170,6 +170,10 @@ CELERY_BEAT_SCHEDULE = {
     "expire-stale-call-sessions": {
         "task": "apps.calls.tasks.expire_stale_call_sessions",
         "schedule": timedelta(seconds=15),
+    },
+    "enforce-support-chat-retention": {
+        "task": "apps.messaging.tasks.enforce_support_chat_retention",
+        "schedule": timedelta(hours=24),
     },
 }
 

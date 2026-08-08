@@ -35,6 +35,8 @@ class Chat(UUIDTimeStampedModel):
     is_public = models.BooleanField(default=False, db_index=True)
     members_count = models.PositiveIntegerField(default=0)
     last_message_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    retention_warned_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    retention_delete_after = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
         db_table = "chats"
