@@ -7,3 +7,13 @@ services:
       - ./web:/usr/share/nginx/html:ro
       - static_data:/var/www/static:ro
       - media_data:/var/www/media:ro
+    networks:
+      default:
+      sl_services_internal:
+        aliases:
+          - akylchat-internal
+
+networks:
+  sl_services_internal:
+    external: true
+    name: sl-services-internal
