@@ -8,8 +8,12 @@ from .models import UploadedMedia
 
 
 class MultipartBooleanField(serializers.BooleanField):
-    TRUE_VALUES = {"true", "1", "yes", "on", "y", "t"}
-    FALSE_VALUES = {"false", "0", "no", "off", "n", "f", ""}
+    # Keep DRF's native bool/int values as well as values commonly sent by
+    # multipart mobile clients.  Replacing these sets with strings only makes
+    # an omitted checkbox become the boolean ``False`` and then fail its own
+    # validation.
+    TRUE_VALUES = serializers.BooleanField.TRUE_VALUES | {"yes", "on", "y", "t"}
+    FALSE_VALUES = serializers.BooleanField.FALSE_VALUES | {"no", "off", "n", "f", ""}
 
     def to_internal_value(self, data):
         if isinstance(data, str):

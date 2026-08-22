@@ -48,7 +48,7 @@ def enforce_support_chat_retention() -> dict:
             has_response = chat.messages.filter(
                 created_at__gt=chat.retention_warned_at,
                 is_deleted=False,
-            ).exclude(metadata__retention_warning=True).exists()
+            ).exclude(metadata={"retention_warning": True}).exists()
             if has_response:
                 chat.retention_warned_at = None
                 chat.retention_delete_after = None
