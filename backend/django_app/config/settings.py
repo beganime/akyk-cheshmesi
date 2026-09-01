@@ -23,11 +23,11 @@ env = environ.Env(
     REDIS_HISTORY_LIST_LIMIT=(int, 50),
     REDIS_HISTORY_TTL_SECONDS=(int, 604800),
     REDIS_PRESENCE_TTL_SECONDS=(int, 90),
-    MEDIA_MAX_UPLOAD_SIZE_BYTES=(int, 26214400),
+    MEDIA_MAX_UPLOAD_SIZE_BYTES=(int, 52428800),
     APP_RELEASE_MAX_UPLOAD_SIZE_BYTES=(int, 268435456),
     MEDIA_SIGNED_URL_TTL_SECONDS=(int, 3600),
     MEDIA_USE_X_ACCEL_REDIRECT=(bool, True),
-    MAX_UPLOAD_SIZE_MB=(int, 25),
+    MAX_UPLOAD_SIZE_MB=(int, 50),
     IMAGE_MAX_WIDTH=(int, 1920),
     IMAGE_MAX_HEIGHT=(int, 1920),
     IMAGE_THUMBNAIL_SIZE=(int, 480),
@@ -158,10 +158,22 @@ CALL_TURN_SECRET = env("CALL_TURN_SECRET", default="")
 CALL_TURN_USERNAME = env("CALL_TURN_USERNAME", default="")
 CALL_TURN_CREDENTIAL = env("CALL_TURN_CREDENTIAL", default="")
 CALL_TURN_TTL_SECONDS = env.int("CALL_TURN_TTL_SECONDS", default=3600)
+MANAGER_SL_API_BASE_URL = env("MANAGER_SL_API_BASE_URL", default="").rstrip("/")
+MANAGER_SL_SERVICE_TOKEN = env("MANAGER_SL_SERVICE_TOKEN", default="")
+
+# The task only processes Students Life support chats. It warns in the chat,
+# waits for a reply during the grace period, then removes messages and files.
+CHAT_RETENTION_ENABLED = env.bool("CHAT_RETENTION_ENABLED", default=False)
+CHAT_RETENTION_DAYS = env.int("CHAT_RETENTION_DAYS", default=90)
+CHAT_RETENTION_GRACE_DAYS = env.int("CHAT_RETENTION_GRACE_DAYS", default=3)
 CELERY_BEAT_SCHEDULE = {
     "expire-stale-call-sessions": {
         "task": "apps.calls.tasks.expire_stale_call_sessions",
         "schedule": timedelta(seconds=15),
+    },
+    "enforce-support-chat-retention": {
+        "task": "apps.messaging.tasks.enforce_support_chat_retention",
+        "schedule": timedelta(hours=24),
     },
 }
 
@@ -237,7 +249,7 @@ MEDIA_SIGNED_URL_TTL_SECONDS = env.int("MEDIA_SIGNED_URL_TTL_SECONDS", default=3
 MEDIA_USE_X_ACCEL_REDIRECT = env.bool("MEDIA_USE_X_ACCEL_REDIRECT", default=True)
 MEDIA_X_ACCEL_PREFIX = env("MEDIA_X_ACCEL_PREFIX", default="/_protected_media/")
 
-MAX_UPLOAD_SIZE_MB = env.int("MAX_UPLOAD_SIZE_MB", default=25)
+MAX_UPLOAD_SIZE_MB = env.int("MAX_UPLOAD_SIZE_MB", default=50)
 MEDIA_MAX_UPLOAD_SIZE_BYTES = env.int(
     "MEDIA_MAX_UPLOAD_SIZE_BYTES",
     default=MAX_UPLOAD_SIZE_MB * 1024 * 1024,

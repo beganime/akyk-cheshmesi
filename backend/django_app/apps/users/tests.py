@@ -349,3 +349,69 @@ class AuthLoginAPITests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("access", response.data["tokens"])
+
+
+@override_settings(MANAGER_SL_SERVICE_TOKEN="sl-service-test-token")
+class SLInternalSupportAPITests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.auth = {"HTTP_AUTHORIZATION": "Bearer sl-service-test-token"}
+
+    def provision(self):
+        return self.client.post(
+            "/api/v1/internal/sl/provision/",
+            {
+                "sl_id": "SL-001",
+                "full_name": "Тестовый Клиент",
+                "password": "Test_0710",
+            },
+            format="json",
+            **self.auth,
+        )
+
+    def test_provision_is_idempotent_and_creates_support_chat(self):
+        first = self.provision()
+        second = self.provision()
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(User.objects.filter(username="SL-001").count(), 1)
+        self.assertEqual(Chat.objects.filter(direct_key="sl-support:sl-001").count(), 1)
+        chat = Chat.objects.get(direct_key="sl-support:sl-001")
+        self.assertEqual(chat.members.filter(is_active=True).count(), 2)
+        self.assertEqual(first.data["chat_uuid"], second.data["chat_uuid"])
+
+    def test_support_chat_accepts_client_and_manager_messages(self):
+        self.provision()
+        client_message = self.client.post(
+            "/api/v1/internal/sl/support-chats/SL-001/messages/",
+            {"actor": "client", "text": "Здравствуйте"},
+            format="json",
+            **self.auth,
+        )
+        manager_message = self.client.post(
+            "/api/v1/internal/sl/support-chats/SL-001/messages/",
+            {"actor": "manager", "manager_name": "Наргиза", "text": "Добрый день"},
+            format="json",
+            **self.auth,
+        )
+        history = self.client.get(
+            "/api/v1/internal/sl/support-chats/SL-001/messages/?actor=client",
+            **self.auth,
+        )
+
+        self.assertEqual(client_message.status_code, 201)
+        self.assertEqual(manager_message.status_code, 201)
+        self.assertEqual(history.status_code, 200)
+        self.assertEqual(history.data["count"], 2)
+        self.assertTrue(history.data["results"][0]["is_mine"])
+        self.assertEqual(history.data["results"][1]["sender_role"], "manager")
+        self.assertEqual(history.data["results"][1]["sender_display_name"], "Наргиза")
+
+    def test_internal_endpoints_require_service_token(self):
+        response = self.client.post(
+            "/api/v1/internal/sl/provision/",
+            {"sl_id": "SL-001", "full_name": "Тест", "password": "Test_0710"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 401)

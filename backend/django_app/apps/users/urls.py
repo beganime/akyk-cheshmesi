@@ -1,5 +1,12 @@
 from django.urls import path
 
+from .internal_sl_views import (
+    SLClientProvisionAPIView,
+    SLSupportChatAPIView,
+    SLSupportChatListAPIView,
+    SLSupportChatReadAPIView,
+)
+
 from .contact_views import ContactDetailAPIView, ContactListAPIView, ContactVCardAPIView
 from .presence_views import PresenceBulkAPIView, PresenceDetailAPIView
 from .search_views import SearchUsersAPIView
@@ -16,6 +23,10 @@ from .views import (
 )
 
 urlpatterns = [
+    path("internal/sl/provision/", SLClientProvisionAPIView.as_view(), name="internal-sl-provision"),
+    path("internal/sl/support-chats/", SLSupportChatListAPIView.as_view(), name="internal-sl-support-chats"),
+    path("internal/sl/support-chats/<str:sl_id>/messages/", SLSupportChatAPIView.as_view(), name="internal-sl-support-chat"),
+    path("internal/sl/support-chats/<str:sl_id>/read/", SLSupportChatReadAPIView.as_view(), name="internal-sl-support-chat-read"),
     path("auth/register/", RegisterAPIView.as_view(), name="auth-register"),
     path("auth/verify-email/", VerifyEmailAPIView.as_view(), name="auth-verify-email"),
     path("auth/set-password/", SetPasswordAPIView.as_view(), name="auth-set-password"),

@@ -53,11 +53,11 @@ def validate_upload_input(filename: str, content_type: str, size: int) -> Valida
     if extension in blocked_extensions:
         raise ValueError(f"File extension is not allowed: .{extension}")
 
-    if allowed_extensions and extension not in allowed_extensions:
-        raise ValueError(f"Unsupported file extension: .{extension}")
-
     if allowed and normalized_content_type not in allowed:
         raise ValueError(f"Unsupported content type: {normalized_content_type}")
+
+    if allowed_extensions and extension not in allowed_extensions:
+        raise ValueError(f"Unsupported file extension: .{extension}")
 
     media_kind = detect_media_kind(normalized_content_type)
 
